@@ -1,0 +1,45 @@
+name: Stage376 Production RFC3161 Verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+
+  rfc3161-verification:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Stage376 input
+
+        run: |
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path(
+              "docs/final-acceptance-v2/input/"
+              "stage376_final_acceptance_input.json"
+          )
+
+          d = json.loads(
+              p.read_text(encoding="utf-8")
+          )
+
+          print("Stage:", d["stage"])
+          print("Source:", d["source_stage"])
+          print("Previous:", d["previous_hash"])
+          print("Target SHA256:")
+          print(
+              d["timestamp_target"]["sha256"]
+          )
+          PY
+
