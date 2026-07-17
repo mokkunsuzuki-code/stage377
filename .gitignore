@@ -1,0 +1,211 @@
+core/
+private_core/
+private/
+secrets/
+keys/
+*.pem
+*.key
+*.p12
+*.pfx
+*.asc
+*.gpg
+*.env
+.env
+.DS_Store
+
+.github/
+audit/
+backup_stage336_docs/
+data/
+downloaded_stage345_artifact/
+intelligence/
+tools/
+README.md.stage347.bak
+execution_session.json
+execution_session.json.sig
+requirements.txt
+index.html
+stage354_key_rotation_ledger.py
+stage355_key_status_verification.py
+stage356_runtime_fail_closed_gate.py
+stage357_runtime_action_isolation_enforcer.py
+stage358_signing_time_validity_enforcer.py
+stage359_public_key_fingerprint_validator.py
+stage360_external_timestamp_proof_binding.py
+
+!docs/
+!docs/**
+
+*.ots
+*.tsr
+*.tsa
+*.token
+*.der
+docs/**/*.ots
+docs/**/*.tsr
+docs/**/*.tsa
+docs/**/*.token
+docs/**/*.der
+
+__pycache__/
+*.pyc
+
+# Stage373 private verification material
+private/
+private_core/
+core/
+secrets/
+keys/
+credentials/
+tokens/
+oidc/
+runner-private/
+
+# Secret and private-key formats
+*.key
+*.pem
+*.p12
+*.pfx
+*.seed
+*.secret
+*.token.private
+*.credentials
+.env
+.env.*
+
+# Runtime caches
+__pycache__/
+*.pyc
+
+# Raw timestamp binaries must not be public
+*.ots
+*.tsr
+*.tsa
+*.token
+*.der
+
+# Stage374 private execution output
+private/stage374-sigstore/
+stage374-artifact-download/
+stage374-artifact-download.zip
+
+# Authentication material
+*.jwt
+*.oidc
+*.credential
+*.credentials
+*.secret
+*.private
+*_TOKEN
+*_SECRET
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Permit only the public Stage374 workflow
+!.github/
+!.github/workflows/
+!.github/workflows/stage374-production-sigstore.yml
+
+# Keep inherited workflows private in Stage374
+.github/workflows/stage336-live-intel.yml
+.github/workflows/stage342-external-anchor.yml
+.github/workflows/stage350-enforcement.yml
+.github/workflows/stage351-hybrid-signature-manifest.yml
+.github/workflows/stage352-signature-manifest-verification.yml
+.github/workflows/stage353-verification-transparency-chain.yml
+
+# Keep Stage374 workflow public
+!.github/workflows/stage374-production-sigstore.yml
+
+# Keep inherited workflows private in Stage374
+.github/workflows/stage336-live-intel.yml
+.github/workflows/stage342-external-anchor.yml
+.github/workflows/stage350-enforcement.yml
+.github/workflows/stage351-hybrid-signature-manifest.yml
+.github/workflows/stage352-signature-manifest-verification.yml
+.github/workflows/stage353-verification-transparency-chain.yml
+
+# Keep Stage374 workflow public
+!.github/workflows/stage374-production-sigstore.yml
+
+# Stage375 ML-DSA private material
+private/stage375-mldsa/
+stage375-artifact-download/
+stage375-artifact-download.zip
+
+# Never publish private ML-DSA material
+*.mldsa-private.pem
+*.mldsa-private.der
+*.mldsa-seed
+*.pk8
+*.private-key
+*_PRIVATE_KEY*
+*_PRIVATE_KEY_B64*
+
+# Stage375 temporary build files
+openssl-source/
+openssl-build/
+openssl-install/
+
+# Keep inherited workflows private
+.github/workflows/stage336-live-intel.yml
+.github/workflows/stage342-external-anchor.yml
+.github/workflows/stage350-enforcement.yml
+.github/workflows/stage351-hybrid-signature-manifest.yml
+.github/workflows/stage352-signature-manifest-verification.yml
+.github/workflows/stage353-verification-transparency-chain.yml
+.github/workflows/stage374-production-sigstore.yml
+
+# Publish only the Stage375 workflow
+!.github/
+!.github/workflows/
+!.github/workflows/stage375-production-mldsa.yml
+
+# Stage375 public ML-DSA verification key
+!docs/mldsa-production/
+!docs/mldsa-production/stage375_mldsa65_public_key.pem
+
+!docs/
+!docs/mldsa-production/
+!docs/mldsa-production/stage375_mldsa65_public_key.pem
+
+# Stage376 private timestamp material
+private/stage376-timestamps/
+stage376-artifact-download/
+stage376-artifact-download.zip
+
+# Raw RFC3161 and OpenTimestamps files
+*.tsq
+*.tsr
+*.tst
+*.timestamp-token
+*.tsa-response
+*.ots
+
+# TSA trust material is private by default
+*.tsa.pem
+*.tsa.crt
+*.tsa.cer
+
+# Runtime output and command logs
+private/stage376-output/
+stage376-runtime/
+*.timestamp-command-output
+
+# Keep inherited executable workflows private in Stage376
+.github/workflows/stage336-live-intel.yml
+.github/workflows/stage342-external-anchor.yml
+.github/workflows/stage350-enforcement.yml
+.github/workflows/stage351-hybrid-signature-manifest.yml
+.github/workflows/stage352-signature-manifest-verification.yml
+.github/workflows/stage353-verification-transparency-chain.yml
+.github/workflows/stage374-production-sigstore.yml
+.github/workflows/stage375-production-mldsa.yml
+
+# Stage376 public workflows will be explicitly allowed
+!.github/
+!.github/workflows/
+!.github/workflows/stage376-production-rfc3161.yml
+!.github/workflows/stage376-production-opentimestamps.yml
