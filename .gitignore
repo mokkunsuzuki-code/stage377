@@ -209,3 +209,8 @@ stage376-runtime/
 !.github/workflows/
 !.github/workflows/stage376-production-rfc3161.yml
 !.github/workflows/stage376-production-opentimestamps.yml
+
+# Stage376 raw RFC3161 material
+*.p7s
+*.p7b
+private/rfc3161/
