@@ -2063,6 +2063,10 @@ maximum timestamp assurance
 
   <ul>
     <li>
+      Input type:
+      <code>production_dual_timestamp_superseding_final_acceptance_input</code>
+    </li>
+    <li>
       Current decision:
       <code>dual_timestamp_execution_pending</code>
     </li>
@@ -2243,6 +2247,12 @@ maximum_timestamp_assurance: true
     Stage376 currently proves that the dual-timestamp verification
     target, policy, fixed execution mode, safety boundaries, and initial
     metadata receivers have been prepared.
+  </p>
+
+  <p>
+    The historic Stage372 evidence remains preserved without
+    modification. Stage376 is designed to create a later superseding
+    effective state rather than rewriting the original Stage372 record.
   </p>
 
   <p>
