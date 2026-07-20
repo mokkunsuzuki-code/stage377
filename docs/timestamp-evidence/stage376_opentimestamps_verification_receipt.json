@@ -16,6 +16,6 @@
   "confirmed_public_anchor": false,
   "verified": false,
   "raw_proof_published": false,
-  "private_material_published": false,
-  "note": "Safe initial receipt. OpenTimestamps verification remains pending until the proof is upgraded, a confirmed public anchor exists, and the target hash is independently verified."
+  "private_key_published": false,
+  "note": "Safe initial receipt. OpenTimestamps verification is not claimed until the fixed production workflow verifies the proof against the canonical Stage360 target and confirms a public anchor."
 }
