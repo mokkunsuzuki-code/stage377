@@ -27,18 +27,19 @@
 <body>
 <header>
   <h1>Stage376</h1>
-  <p>Stage329 Audit Submission Package + Stage330 Evidence Hash Auto Builder + Stage331 Execution Integrity + Stage332 Signed Execution Session + Stage333 Transparency Log + Stage334 AI Vulnerability Watch Atlas + Stage335 Safe AI Vulnerability Intelligence Fetcher</p>
-  <span class="badge">Stage329の監査提出機能、
-Stage330のSHA256自動生成、
-Stage331のExecution Integrityを継承し、
 
-Stage332では
-Execution Session に
-GPG / Sigstore 署名を追加します。
+  <p>
+    Production Dual-Timestamp Verification
+    &amp; Superseding Final Acceptance Gate
+  </p>
 
-これにより、
-実行証拠は署名付き監査証拠となり、
-第三者検証可能になります。</span>
+  <span class="badge">
+    Stage375の量子安全二重署名検証を継承し、
+    Stage360の正規化された対象に対して
+    RFC3161とOpenTimestampsの二重タイムスタンプ検証を行います。
+    両方の外部証明が同一対象に対して独立に検証された場合のみ、
+    Stage372の履歴を変更せず、新しい有効な最終承認状態を成立させます。
+  </span>
 </header>
 
 <main>
@@ -2057,54 +2058,73 @@ maximum timestamp assurance
     <li>PQC downgrade prevented: <code>true</code></li>
   </ul>
 
+  
   <h3>Current Production State</h3>
 
   <ul>
     <li>
       Current decision:
-      <code>partial_timestamp_verification</code>
+      <code>dual_timestamp_execution_pending</code>
     </li>
-    <li>RFC3161 execution status: <code>verified</code></li>
-    <li>RFC3161 verified: <code>true</code></li>
-    <li>DigiCert TSA HTTP response: <code>200</code></li>
+    <li>RFC3161 execution status: <code>not_executed</code></li>
+    <li>RFC3161 verified: <code>false</code></li>
+    <li>DigiCert TSA URL: <code>not_recorded</code></li>
+    <li>DigiCert TSA HTTP response: <code>not_recorded</code></li>
     <li>
       OpenSSL timestamp verification exit code:
-      <code>0</code>
+      <code>not_recorded</code>
     </li>
-    <li>TSA signature verified: <code>true</code></li>
-    <li>Certificate chain verified: <code>true</code></li>
-    <li>RFC3161 message imprint matches: <code>true</code></li>
-    <li>Stage360 digest matches: <code>true</code></li>
+    <li>TSA signature verified: <code>false</code></li>
+    <li>Certificate chain verified: <code>false</code></li>
+    <li>RFC3161 message imprint matches: <code>false</code></li>
+    <li>RFC3161 nonce matches: <code>false</code></li>
     <li>OpenTimestamps status: <code>not_executed</code></li>
     <li>OpenTimestamps verified: <code>false</code></li>
+    <li>OpenTimestamps public anchor confirmed: <code>false</code></li>
     <li>Effective final acceptance: <code>false</code></li>
     <li>Timestamp verified as a dual proof: <code>false</code></li>
     <li>Maximum timestamp assurance: <code>false</code></li>
   </ul>
 
   <p>
-    The RFC3161 production verification has succeeded. However,
-    OpenTimestamps verification has not yet completed. Therefore,
-    Stage376 must not claim dual-timestamp final acceptance or maximum
-    timestamp assurance at the current stage.
+    Stage376 is currently in a safe pending state.
+    The canonical Stage360 timestamp target and the fixed production
+    workflow inputs have been prepared, but neither RFC3161 nor
+    OpenTimestamps production verification has completed.
   </p>
+
+  <p>
+    Stage376 must not claim timestamp verification, external final
+    acceptance, or maximum timestamp assurance until independently
+    valid RFC3161 and OpenTimestamps verification receipts are imported
+    and validated against the same Stage360 target.
+  </p>
+
 
   <h3>RFC3161 Production Verification</h3>
 
   <p>
-    Stage376 generates an RFC3161 timestamp request for the canonical
-    Stage360 target, submits it to the DigiCert Timestamp Authority,
-    receives the timestamp response, and verifies the response
+    Stage376 is designed to generate an RFC3161 timestamp request for
+    the canonical Stage360 target, submit it to a configured Timestamp
+    Authority, receive the timestamp response, and verify the response
     cryptographically with OpenSSL.
   </p>
 
   <p>
-    The verified RFC3161 receipt proves that the canonical Stage360
-    target existed no later than the time recorded by the external
-    Timestamp Authority.
+    The current public RFC3161 receipt is an initial safety receipt.
+    Its execution status is <code>not_executed</code>, and the TSA URL,
+    request hash, response hash, timestamp-token hash, message imprint,
+    generation time, verification exit code, TSA signature result, and
+    certificate-chain result have not yet been recorded.
   </p>
 
-  <h3>OpenTimestamps Verification</h3>
+  <p>
+    RFC3161 verification may be marked as successful only after a fixed
+    GitHub Actions workflow produces a complete metadata receipt whose
+    target hash matches the canonical Stage360 target.
+  </p>
+
+<h3>OpenTimestamps Verification</h3>
 
   <p>
     OpenTimestamps is the second independent timestamp method required
@@ -2220,16 +2240,16 @@ maximum_timestamp_assurance: true
   <h3>Current Meaning</h3>
 
   <p>
-    Stage376 currently proves successful production RFC3161 verification
-    for the canonical Stage360 timestamp target.
+    Stage376 currently proves that the dual-timestamp verification
+    target, policy, fixed execution mode, safety boundaries, and initial
+    metadata receivers have been prepared.
   </p>
 
   <p>
-    It does not yet prove completed dual-timestamp final acceptance,
-    because the required OpenTimestamps public-anchor verification has
-    not yet been completed.
+    It does not yet prove successful RFC3161 verification,
+    OpenTimestamps verification, dual-timestamp final acceptance, or
+    maximum timestamp assurance.
   </p>
-</section>
 
 </body>
 </html>
