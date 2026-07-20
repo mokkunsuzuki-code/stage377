@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="google" content="notranslate">
-  <title>Stage375 - Production ML-DSA-65 Dual-Signature Verification and Downgrade Prevention Gate</title>
+  <title>Stage376: Production Dual-Timestamp Verification &amp; Superseding Final Acceptance Gate</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; background: #f6f8fa; color: #24292f; }
     header { background: #0d1117; color: white; padding: 44px 32px; }
@@ -26,7 +26,7 @@
 </head>
 <body>
 <header>
-  <h1>Stage375</h1>
+  <h1>Stage376</h1>
   <p>Stage329 Audit Submission Package + Stage330 Evidence Hash Auto Builder + Stage331 Execution Integrity + Stage332 Signed Execution Session + Stage333 Transparency Log + Stage334 AI Vulnerability Watch Atlas + Stage335 Safe AI Vulnerability Intelligence Fetcher</p>
   <span class="badge">Stage329の監査提出機能、
 Stage330のSHA256自動生成、
@@ -288,6 +288,9 @@ Stage331 verifies not only file integrity, but whether the evidence files belong
     </tr>
   </table>
 </section>
+
+
+
 
 
 
@@ -1975,6 +1978,256 @@ fetch("./docs/stage335/watch-summary.json")
     <a href="./mldsa-production/stage375_dual_signature_verification_summary.txt">
       Stage375 Summary
     </a>
+  </p>
+</section>
+
+<section id="stage376">
+  <h2>
+    Stage376: Production Dual-Timestamp Verification
+    &amp; Superseding Final Acceptance Gate
+  </h2>
+
+  <p>
+    Stage376 extends Stage375 by applying two independent external
+    timestamp verification methods—RFC3161 and OpenTimestamps—to the
+    canonical Stage360 timestamp target.
+  </p>
+
+  <p>
+    Stage376 does not rewrite the historic Stage372 record.
+    Stage372 remains preserved as
+    <code>final_acceptance_pending</code>.
+    Stage376 creates a new effective final-acceptance state only after
+    both timestamp verification methods are independently verified
+    against the same canonical target.
+  </p>
+
+  <h3>Stage375 to Stage376</h3>
+
+  <pre>
+Stage375 quantum-safe dual-signature verification
+↓
+Stage360 canonical timestamp target validation
+↓
+RFC3161 production timestamp verification
++
+OpenTimestamps public-anchor verification
+↓
+independent verification receipt validation
+↓
+dual-timestamp target comparison
+↓
+superseding final acceptance
+↓
+maximum timestamp assurance
+  </pre>
+
+  <h3>Canonical Timestamp Target</h3>
+
+  <p>
+    The timestamp target is reconstructed from the Stage360 canonical
+    timestamp-binding object.
+  </p>
+
+  <pre>052c8f0283110e405443d56f2396c52a8486e7a70a489f831af107dad73ab1b5</pre>
+
+  <ul>
+    <li>Source stage: <code>360</code></li>
+    <li>
+      Canonical format:
+      <code>JSON / UTF-8 / sorted keys / no trailing newline</code>
+    </li>
+    <li>
+      Stage360 canonical reconstruction verified:
+      <code>true</code>
+    </li>
+  </ul>
+
+  <h3>Stage375 Prerequisite State</h3>
+
+  <ul>
+    <li>
+      Stage375 decision:
+      <code>quantum_safe_dual_signature_verified</code>
+    </li>
+    <li>Sigstore signature verified: <code>true</code></li>
+    <li>Rekor inclusion verified: <code>true</code></li>
+    <li>ML-DSA-65 signature verified: <code>true</code></li>
+    <li>Dual-signature target matches: <code>true</code></li>
+    <li>PQC downgrade prevented: <code>true</code></li>
+  </ul>
+
+  <h3>Current Production State</h3>
+
+  <ul>
+    <li>
+      Current decision:
+      <code>partial_timestamp_verification</code>
+    </li>
+    <li>RFC3161 execution status: <code>verified</code></li>
+    <li>RFC3161 verified: <code>true</code></li>
+    <li>DigiCert TSA HTTP response: <code>200</code></li>
+    <li>
+      OpenSSL timestamp verification exit code:
+      <code>0</code>
+    </li>
+    <li>TSA signature verified: <code>true</code></li>
+    <li>Certificate chain verified: <code>true</code></li>
+    <li>RFC3161 message imprint matches: <code>true</code></li>
+    <li>Stage360 digest matches: <code>true</code></li>
+    <li>OpenTimestamps status: <code>not_executed</code></li>
+    <li>OpenTimestamps verified: <code>false</code></li>
+    <li>Effective final acceptance: <code>false</code></li>
+    <li>Timestamp verified as a dual proof: <code>false</code></li>
+    <li>Maximum timestamp assurance: <code>false</code></li>
+  </ul>
+
+  <p>
+    The RFC3161 production verification has succeeded. However,
+    OpenTimestamps verification has not yet completed. Therefore,
+    Stage376 must not claim dual-timestamp final acceptance or maximum
+    timestamp assurance at the current stage.
+  </p>
+
+  <h3>RFC3161 Production Verification</h3>
+
+  <p>
+    Stage376 generates an RFC3161 timestamp request for the canonical
+    Stage360 target, submits it to the DigiCert Timestamp Authority,
+    receives the timestamp response, and verifies the response
+    cryptographically with OpenSSL.
+  </p>
+
+  <p>
+    The verified RFC3161 receipt proves that the canonical Stage360
+    target existed no later than the time recorded by the external
+    Timestamp Authority.
+  </p>
+
+  <h3>OpenTimestamps Verification</h3>
+
+  <p>
+    OpenTimestamps is the second independent timestamp method required
+    by the Stage376 dual-timestamp policy.
+  </p>
+
+  <p>
+    Until an OpenTimestamps proof is independently verified against the
+    same Stage360 target and a confirmed public anchor is recorded,
+    Stage376 remains in a partial verification state.
+  </p>
+
+  <h3>Final Acceptance Rule</h3>
+
+  <p>
+    Stage376 may return
+    <code>dual_timestamp_final_acceptance_verified</code>
+    only when every required condition below is satisfied.
+  </p>
+
+  <ul>
+    <li>Stage375 quantum-safe dual-signature verification remains valid.</li>
+    <li>RFC3161 verification succeeds.</li>
+    <li>OpenTimestamps verification succeeds.</li>
+    <li>Both proofs bind the same Stage360 target SHA256.</li>
+    <li>The RFC3161 TSA signature is valid.</li>
+    <li>The RFC3161 certificate chain is valid.</li>
+    <li>The OpenTimestamps public anchor is confirmed.</li>
+    <li>No target-hash mismatch exists.</li>
+    <li>No fake verified claim exists.</li>
+    <li>No private or prohibited material is exposed.</li>
+  </ul>
+
+  <h3>Successful Final State</h3>
+
+  <p>
+    Only after all acceptance conditions pass may Stage376 publish the
+    following state:
+  </p>
+
+  <pre>
+decision: dual_timestamp_final_acceptance_verified
+rfc3161_verified: true
+opentimestamps_verified: true
+dual_timestamp_target_matches: true
+effective_final_acceptance: true
+timestamp_verified: true
+maximum_timestamp_assurance: true
+  </pre>
+
+  <h3>Historic Stage372 Preservation</h3>
+
+  <ul>
+    <li>
+      Historic Stage372 decision:
+      <code>final_acceptance_pending</code>
+    </li>
+    <li>Historic Stage372 timestamp verified: <code>false</code></li>
+    <li>Historic Stage372 record modified: <code>false</code></li>
+  </ul>
+
+  <p>
+    Stage376 does not alter or overwrite Stage372.
+    Instead, it preserves Stage372 as historical evidence and creates a
+    later superseding operational state after stronger external proof
+    requirements are satisfied.
+  </p>
+
+  <h3>Fail-Closed Enforcement</h3>
+
+  <ul>
+    <li>RFC3161 success alone is not dual-timestamp acceptance.</li>
+    <li>OpenTimestamps success alone is not dual-timestamp acceptance.</li>
+    <li>A target-hash mismatch blocks final acceptance.</li>
+    <li>A missing verification receipt keeps the result pending.</li>
+    <li>An unsupported verified claim is blocked.</li>
+    <li>A fake verified claim is blocked.</li>
+    <li>A failed Stage375 prerequisite blocks final acceptance.</li>
+  </ul>
+
+  <h3>Publication Boundary</h3>
+
+  <ul>
+    <li>No private keys are published.</li>
+    <li>No ML-DSA private key or seed is published.</li>
+    <li>No OIDC or GitHub token is published.</li>
+    <li>No raw QKD key material is published.</li>
+    <li>No raw TSQ file is published.</li>
+    <li>No raw TSR file is published.</li>
+    <li>No raw RFC3161 timestamp token is published.</li>
+    <li>No raw OpenTimestamps binary proof is published by default.</li>
+    <li>No TSA certificate bundle is published.</li>
+    <li>No free-form timestamp command is accepted.</li>
+    <li>Only metadata receipts and public verification results are published.</li>
+  </ul>
+
+  <h3>Public Evidence</h3>
+
+  <p>
+    <a href="./timestamp-evidence/stage376_stage360_timestamp_target.json">
+      Stage376 Stage360 Timestamp Target JSON
+    </a><br>
+
+    <a href="./final-acceptance-v2/input/stage376_final_acceptance_input.json">
+      Stage376 Dual-Timestamp Final Acceptance Input JSON
+    </a><br>
+
+    <a href="./timestamp-evidence/stage376_rfc3161_verification_receipt.json">
+      Stage376 RFC3161 Verification Receipt JSON
+    </a>
+  </p>
+
+  <h3>Current Meaning</h3>
+
+  <p>
+    Stage376 currently proves successful production RFC3161 verification
+    for the canonical Stage360 timestamp target.
+  </p>
+
+  <p>
+    It does not yet prove completed dual-timestamp final acceptance,
+    because the required OpenTimestamps public-anchor verification has
+    not yet been completed.
   </p>
 </section>
 
