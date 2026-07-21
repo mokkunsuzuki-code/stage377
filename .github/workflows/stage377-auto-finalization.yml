@@ -1,0 +1,441 @@
+name: Stage377 Automatic Dual Timestamp Finalization
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+
+  workflow_dispatch:
+
+  workflow_run:
+    workflows:
+      - Stage377 OpenTimestamps Continuation Verification
+    types:
+      - completed
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: stage377-automatic-dual-timestamp-finalization
+  cancel-in-progress: false
+
+jobs:
+  redispatch-opentimestamps-continuation:
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch'
+
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPOSITORY: ${{ github.repository }}
+
+    steps:
+      - name: Find latest usable OpenTimestamps continuation
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          find_usable_run() {
+            local workflow_file="$1"
+            local required_artifact="$2"
+
+            mapfile -t candidate_run_ids < <(
+              gh api \
+                "repos/${REPOSITORY}/actions/workflows/${workflow_file}/runs?status=success&per_page=30" \
+                --jq '.workflow_runs[].id'
+            )
+
+            for run_id in "${candidate_run_ids[@]:-}"; do
+              artifact_found="$(
+                gh api \
+                  "repos/${REPOSITORY}/actions/runs/${run_id}/artifacts" \
+                  --jq \
+                  ".artifacts[]
+                   | select(
+                       .name == \"${required_artifact}\"
+                       and .expired == false
+                     )
+                   | .id" \
+                  | head -n 1
+              )"
+
+              if [ -n "${artifact_found}" ]; then
+                echo "${run_id}"
+                return 0
+              fi
+            done
+
+            return 1
+          }
+
+          SOURCE_RUN_ID="$(
+            find_usable_run \
+              stage377-opentimestamps-continuation.yml \
+              stage377-opentimestamps-encrypted-continuation \
+              || true
+          )"
+
+          SOURCE_KIND="continuation"
+
+          if [ -z "${SOURCE_RUN_ID}" ]; then
+            SOURCE_RUN_ID="$(
+              find_usable_run \
+                stage377-production-opentimestamps.yml \
+                stage377-opentimestamps-encrypted-continuation \
+                || true
+            )"
+
+            SOURCE_KIND="production"
+          fi
+
+          if [ -z "${SOURCE_RUN_ID}" ]; then
+            echo "ERROR: no usable encrypted OpenTimestamps continuation artifact was found."
+            exit 1
+          fi
+
+          echo "Selected source run: ${SOURCE_RUN_ID}"
+          echo "Selected source kind: ${SOURCE_KIND}"
+
+          echo "source_run_id=${SOURCE_RUN_ID}" \
+            >> "${GITHUB_OUTPUT}"
+
+          echo "source_kind=${SOURCE_KIND}" \
+            >> "${GITHUB_OUTPUT}"
+
+      - name: Download latest OpenTimestamps metadata receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p imported/latest-opentimestamps
+
+          gh run download \
+            "${{ steps.source.outputs.source_run_id }}" \
+            --repo "${REPOSITORY}" \
+            --name stage377-opentimestamps-metadata-receipt \
+            --dir imported/latest-opentimestamps
+
+          RECEIPT_PATH="$(
+            find imported/latest-opentimestamps \
+              -type f \
+              -name \
+              'stage377_opentimestamps_verification_receipt.json' \
+              -print \
+              -quit
+          )"
+
+          if [ -z "${RECEIPT_PATH}" ]; then
+            echo "ERROR: OpenTimestamps metadata receipt was not found."
+            exit 1
+          fi
+
+          python3 -m json.tool \
+            "${RECEIPT_PATH}" \
+            >/dev/null
+
+          echo "OTS_RECEIPT_PATH=${RECEIPT_PATH}" \
+            >> "${GITHUB_ENV}"
+
+      - name: Decide whether continuation is required
+        id: decision
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          receipt_path = Path(os.environ["OTS_RECEIPT_PATH"])
+
+          receipt = json.loads(
+              receipt_path.read_text(encoding="utf-8")
+          )
+
+          target = receipt.get("timestamp_target", {})
+          verification = receipt.get("verification", {})
+
+          target_matches = (
+              target.get("digest_matches_stage360") is True
+              and verification.get("target_hash_matches", True)
+              is True
+          )
+
+          verified = (
+              receipt.get("opentimestamps_verified") is True
+              and receipt.get("execution_status") == "verified"
+              and verification.get("confirmed_public_anchor")
+              is True
+              and target_matches
+          )
+
+          if not target_matches:
+              raise SystemExit(
+                  "ERROR: OpenTimestamps target continuity failed."
+              )
+
+          output_path = Path(os.environ["GITHUB_OUTPUT"])
+
+          with output_path.open("a", encoding="utf-8") as f:
+              f.write(
+                  "continuation_required="
+                  + ("false" if verified else "true")
+                  + "\n"
+              )
+
+          print(
+              "OpenTimestamps status:",
+              "verified" if verified else "pending_confirmation"
+          )
+          PY
+
+      - name: Dispatch OpenTimestamps continuation verification
+        if: steps.decision.outputs.continuation_required == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh workflow run \
+            stage377-opentimestamps-continuation.yml \
+            --repo "${REPOSITORY}" \
+            --ref main \
+            --field \
+            source_run_id="${{ steps.source.outputs.source_run_id }}"
+
+          echo \
+            "Dispatched continuation from run " \
+            "${{ steps.source.outputs.source_run_id }}."
+
+      - name: Skip already verified proof
+        if: steps.decision.outputs.continuation_required == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo \
+            "OpenTimestamps is already verified. " \
+            "No continuation run was dispatched."
+
+  finalize-after-opentimestamps-verification:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success'
+
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPOSITORY: ${{ github.repository }}
+      OTS_RUN_ID: ${{ github.event.workflow_run.id }}
+
+    steps:
+      - name: Download completed OpenTimestamps metadata receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "${OTS_RUN_ID}" in
+            ''|*[!0-9]*)
+              echo "ERROR: invalid OpenTimestamps workflow run ID."
+              exit 1
+              ;;
+          esac
+
+          mkdir -p imported/completed-opentimestamps
+
+          gh run download \
+            "${OTS_RUN_ID}" \
+            --repo "${REPOSITORY}" \
+            --name stage377-opentimestamps-metadata-receipt \
+            --dir imported/completed-opentimestamps
+
+          RECEIPT_PATH="$(
+            find imported/completed-opentimestamps \
+              -type f \
+              -name \
+              'stage377_opentimestamps_verification_receipt.json' \
+              -print \
+              -quit
+          )"
+
+          if [ -z "${RECEIPT_PATH}" ]; then
+            echo "ERROR: completed OpenTimestamps receipt was not found."
+            exit 1
+          fi
+
+          python3 -m json.tool \
+            "${RECEIPT_PATH}" \
+            >/dev/null
+
+          echo "OTS_RECEIPT_PATH=${RECEIPT_PATH}" \
+            >> "${GITHUB_ENV}"
+
+      - name: Confirm public Bitcoin anchor
+        id: ots
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          receipt = json.loads(
+              Path(
+                  os.environ["OTS_RECEIPT_PATH"]
+              ).read_text(encoding="utf-8")
+          )
+
+          target = receipt.get("timestamp_target", {})
+          verification = receipt.get("verification", {})
+
+          required = {
+              "stage_is_377":
+                  receipt.get("stage") == 377,
+
+              "source_stage_is_376":
+                  receipt.get("source_stage") == 376,
+
+              "execution_status_verified":
+                  receipt.get("execution_status") == "verified",
+
+              "opentimestamps_verified":
+                  receipt.get("opentimestamps_verified") is True,
+
+              "verification_exit_code_zero":
+                  receipt.get("verification_exit_code") == 0,
+
+              "digest_matches_stage360":
+                  target.get("digest_matches_stage360") is True,
+
+              "target_hash_matches":
+                  verification.get("target_hash_matches") is True,
+
+              "confirmed_public_anchor":
+                  verification.get("confirmed_public_anchor") is True,
+
+              "confirmed_anchor_type_bitcoin":
+                  verification.get("confirmed_anchor_type")
+                  == "bitcoin",
+
+              "anchor_reference_present":
+                  bool(
+                      verification.get(
+                          "confirmed_anchor_reference"
+                      )
+                  ),
+
+              "verified_time_present":
+                  bool(verification.get("verified_time")),
+
+              "raw_ots_not_published":
+                  receipt.get(
+                      "publication_boundary", {}
+                  ).get("raw_ots_published") is False,
+          }
+
+          for name, passed in required.items():
+              print(
+                  f"{'PASS' if passed else 'PENDING'}: {name}"
+              )
+
+          verified = all(required.values())
+
+          with Path(
+              os.environ["GITHUB_OUTPUT"]
+          ).open("a", encoding="utf-8") as f:
+              f.write(
+                  "verified="
+                  + ("true" if verified else "false")
+                  + "\n"
+              )
+          PY
+
+      - name: Stop while Bitcoin confirmation is pending
+        if: steps.ots.outputs.verified != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo \
+            "OpenTimestamps remains pending. " \
+            "Dual final acceptance will not be dispatched."
+
+      - name: Find latest usable RFC3161 verification run
+        if: steps.ots.outputs.verified == 'true'
+        id: rfc3161
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t candidate_run_ids < <(
+            gh api \
+              "repos/${REPOSITORY}/actions/workflows/stage377-production-rfc3161.yml/runs?status=success&per_page=30" \
+              --jq '.workflow_runs[].id'
+          )
+
+          RFC3161_RUN_ID=""
+
+          for run_id in "${candidate_run_ids[@]:-}"; do
+            artifact_found="$(
+              gh api \
+                "repos/${REPOSITORY}/actions/runs/${run_id}/artifacts" \
+                --jq \
+                '.artifacts[]
+                 | select(
+                     .name
+                     == "stage377-rfc3161-metadata-receipt"
+                     and .expired == false
+                   )
+                 | .id' \
+                | head -n 1
+            )"
+
+            if [ -n "${artifact_found}" ]; then
+              RFC3161_RUN_ID="${run_id}"
+              break
+            fi
+          done
+
+          if [ -z "${RFC3161_RUN_ID}" ]; then
+            echo "ERROR: no usable RFC3161 metadata receipt artifact was found."
+            exit 1
+          fi
+
+          echo "Selected RFC3161 run: ${RFC3161_RUN_ID}"
+
+          echo "run_id=${RFC3161_RUN_ID}" \
+            >> "${GITHUB_OUTPUT}"
+
+      - name: Dispatch dual timestamp final acceptance
+        if: steps.ots.outputs.verified == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh workflow run \
+            stage377-dual-final-acceptance.yml \
+            --repo "${REPOSITORY}" \
+            --ref main \
+            --field \
+            rfc3161_run_id="${{ steps.rfc3161.outputs.run_id }}" \
+            --field \
+            opentimestamps_run_id="${OTS_RUN_ID}"
+
+          echo \
+            "Dispatched Stage377 dual final acceptance."
+
+          echo \
+            "RFC3161 run ID: " \
+            "${{ steps.rfc3161.outputs.run_id }}"
+
+          echo \
+            "OpenTimestamps run ID: ${OTS_RUN_ID}"
