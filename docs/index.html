@@ -25,6 +25,39 @@
   </style>
 </head>
 <body>
+
+
+<!-- STAGE377_CURRENT_PAGE_HEADER_START -->
+<script>
+  document.title =
+    "Stage377: Production Dual-Timestamp Finalization and Superseding Final Acceptance Gate";
+</script>
+<section
+  id="stage377-current-page-header"
+  aria-label="Stage377 current stage"
+>
+  <h1>Stage377</h1>
+
+  <h2>
+    Production Dual-Timestamp Finalization and
+    Superseding Final Acceptance Gate
+  </h2>
+
+  <p>
+    Stage376までの検証履歴を保持し、その末尾に、
+    Stage377の本番二重タイムスタンプ最終化ゲートを
+    積み上げています。
+  </p>
+
+  <p>
+    <strong>Current decision:</strong>
+    <code>timestamp_finalization_pending</code>
+  </p>
+</section>
+<!-- STAGE377_CURRENT_PAGE_HEADER_END -->
+
+
+
 <header>
   <h1>Stage376</h1>
 
@@ -296,416 +329,6 @@ Stage331 verifies not only file integrity, but whether the evidence files belong
 
 
 
-
-
-<!-- STAGE377_APPEND_ONLY_START -->
-<section id="stage377-production-dual-timestamp-finalization">
-
-  <h2>Stage377</h2>
-
-  <h3>
-    Production Dual-Timestamp Finalization and
-    Superseding Final Acceptance Gate
-  </h3>
-
-  <p>
-    Stage377 adds production dual-timestamp finalization directly
-    on top of Stage376.
-  </p>
-
-  <p>
-    Stage376 prepared the fixed Stage360 timestamp target,
-    dual-timestamp verification policy, Fail-Closed requirements,
-    publication boundary, and initial metadata receipt structures.
-  </p>
-
-  <p>
-    Stage377 connects that prepared state to production RFC3161
-    and OpenTimestamps verification receipts.
-  </p>
-
-  <p>
-    Stage377 does not remove, reorganize, replace, or rewrite the
-    Stage376 page. The complete Stage376 page remains preserved
-    before this Stage377 section.
-  </p>
-
-  <h3>Stage377 Purpose</h3>
-
-  <p>
-    Stage377 establishes a later superseding effective final
-    acceptance only when RFC3161 and OpenTimestamps independently
-    verify the same fixed Stage360 target.
-  </p>
-
-  <pre>Stage376 Prepared Dual-Timestamp State
-↓
-Production RFC3161 Verification
-+
-Production OpenTimestamps Verification
-↓
-Same Stage360 Target Confirmation
-↓
-Stage377 Dual-Timestamp Finalization Gate
-↓
-Verified / Pending / Block</pre>
-
-  <h3>Current Fail-Closed State</h3>
-
-  <p>
-    <strong>Decision:</strong>
-    <code>timestamp_finalization_pending</code>
-  </p>
-
-  <p>
-    <strong>RFC3161 Verified:</strong> False<br>
-    <strong>OpenTimestamps Verified:</strong> False<br>
-    <strong>Effective Final Acceptance:</strong> False<br>
-    <strong>Maximum Timestamp Assurance:</strong> False
-  </p>
-
-  <p>
-    This is the correct initial state. Stage377 must not claim
-    successful dual-timestamp final acceptance until both
-    independent external verification receipts satisfy every
-    required condition.
-  </p>
-
-  <h3>Stage377 Adds</h3>
-
-  <ul>
-    <li>Production RFC3161 timestamp acquisition and verification</li>
-    <li>RFC3161 message-imprint verification</li>
-    <li>TSA signature verification</li>
-    <li>TSA certificate-chain verification</li>
-    <li>Production OpenTimestamps proof generation</li>
-    <li>OpenTimestamps public-anchor verification</li>
-    <li>Verified timestamp-time confirmation</li>
-    <li>Same Stage360 target SHA256 enforcement</li>
-    <li>Two-independent-proof requirement</li>
-    <li>Superseding effective final-acceptance decision</li>
-    <li>Metadata-only public verification receipts</li>
-    <li>Fail-Closed pending and block decisions</li>
-  </ul>
-
-  <h3>Production RFC3161 Verification</h3>
-
-  <p>
-    The RFC3161 workflow creates a timestamp request for the fixed
-    canonical Stage360 target.
-  </p>
-
-  <p>
-    The returned timestamp response is checked with OpenSSL.
-    Stage377 requires verification of the target message imprint,
-    TSA signature, certificate chain, generation time, and fixed
-    target SHA256.
-  </p>
-
-  <p>
-    Raw TSQ, TSR, RFC3161 token, and certificate-bundle files
-    remain outside the public <code>docs</code> directory.
-    Only a metadata verification receipt may be published.
-  </p>
-
-  <h3>Production OpenTimestamps Verification</h3>
-
-  <p>
-    The OpenTimestamps workflow creates a proof for the same fixed
-    Stage360 target.
-  </p>
-
-  <p>
-    A newly created OpenTimestamps proof may remain pending while
-    waiting for confirmation by a public blockchain anchor.
-    Stage377 preserves that waiting state and does not convert it
-    into a false success.
-  </p>
-
-  <p>
-    The proof is not accepted as verified until its target hash,
-    public anchor, anchor reference, and verified time satisfy the
-    Stage377 policy.
-  </p>
-
-  <h3>Stage377 Acceptance Conditions</h3>
-
-  <table>
-    <thead>
-      <tr>
-        <th>Requirement</th>
-        <th>Mandatory condition</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Stage376 prerequisite</td>
-        <td>Required Stage376 result and fixed hash are valid</td>
-      </tr>
-      <tr>
-        <td>Historic Stage372 evidence</td>
-        <td>Fixed Stage372 evidence hash remains unchanged</td>
-      </tr>
-      <tr>
-        <td>RFC3161 target</td>
-        <td>Message imprint matches the fixed Stage360 target</td>
-      </tr>
-      <tr>
-        <td>RFC3161 signature</td>
-        <td>TSA signature verification succeeds</td>
-      </tr>
-      <tr>
-        <td>RFC3161 certificate</td>
-        <td>TSA certificate-chain verification succeeds</td>
-      </tr>
-      <tr>
-        <td>OpenTimestamps target</td>
-        <td>Proof target matches the fixed Stage360 target</td>
-      </tr>
-      <tr>
-        <td>OpenTimestamps anchor</td>
-        <td>Public anchor and verified time are confirmed</td>
-      </tr>
-      <tr>
-        <td>Common target</td>
-        <td>Both receipts bind to the same Stage360 SHA256</td>
-      </tr>
-      <tr>
-        <td>Verified proof count</td>
-        <td>Two independent timestamp proofs are verified</td>
-      </tr>
-      <tr>
-        <td>Publication boundary</td>
-        <td>No raw proof or private material exists under docs</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <h3>Stage377 Decisions</h3>
-
-  <table>
-    <thead>
-      <tr>
-        <th>Decision</th>
-        <th>Meaning</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>
-          <code>timestamp_finalization_pending</code>
-        </td>
-        <td>
-          Neither external timestamp system has completed all
-          final verification requirements.
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <code>rfc3161_verified_opentimestamps_pending</code>
-        </td>
-        <td>
-          RFC3161 is verified, but OpenTimestamps remains pending.
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <code>opentimestamps_verified_rfc3161_pending</code>
-        </td>
-        <td>
-          OpenTimestamps is verified, but RFC3161 remains pending.
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <code>dual_timestamp_final_acceptance_verified</code>
-        </td>
-        <td>
-          Both independent proofs verified the same Stage360
-          target and the superseding effective final-acceptance
-          state was established.
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <code>block</code>
-        </td>
-        <td>
-          A prerequisite, required hash, proof, claim,
-          consistency rule, or publication boundary failed.
-        </td>
-      </tr>
-    </tbody>
-  </table>
-
-  <h3>Fail-Closed Enforcement</h3>
-
-  <ul>
-    <li>
-      RFC3161 success alone is not dual-timestamp final acceptance.
-    </li>
-    <li>
-      OpenTimestamps success alone is not dual-timestamp final
-      acceptance.
-    </li>
-    <li>
-      A missing verification receipt keeps the state pending.
-    </li>
-    <li>
-      A target-hash mismatch blocks final acceptance.
-    </li>
-    <li>
-      A previous-hash mismatch blocks final acceptance.
-    </li>
-    <li>
-      An internally inconsistent receipt is blocked.
-    </li>
-    <li>
-      An unsupported verified claim is blocked.
-    </li>
-    <li>
-      A fabricated verified claim is blocked.
-    </li>
-    <li>
-      A publication-boundary violation is blocked.
-    </li>
-    <li>
-      A failed Stage376 prerequisite blocks final acceptance.
-    </li>
-  </ul>
-
-  <h3>Fixed Hash Bindings</h3>
-
-  <p>
-    <strong>Stage376 result SHA256</strong><br>
-    <code>32ff58a1f4d5837518226eee70b32833a8147617df3142ff2f641eca3f116138</code>
-  </p>
-
-  <p>
-    <strong>Stage360 target SHA256</strong><br>
-    <code>052c8f0283110e405443d56f2396c52a8486e7a70a489f831af107dad73ab1b5</code>
-  </p>
-
-  <p>
-    <strong>Historic Stage372 result SHA256</strong><br>
-    <code>ef1847f09c7862d271d71e548f403f75c91b93b2ffc21dec6016f53e0db7c3aa</code>
-  </p>
-
-  <h3>Public Stage377 Evidence</h3>
-
-  <ul>
-    <li>
-      <a href="./timestamp-policy/stage377_dual_timestamp_finalization_policy.json">
-        Stage377 Dual-Timestamp Finalization Policy JSON
-      </a>
-    </li>
-    <li>
-      <a href="./timestamp-evidence/stage377_rfc3161_verification_receipt.json">
-        Stage377 RFC3161 Verification Receipt JSON
-      </a>
-    </li>
-    <li>
-      <a href="./timestamp-evidence/stage377_opentimestamps_verification_receipt.json">
-        Stage377 OpenTimestamps Verification Receipt JSON
-      </a>
-    </li>
-    <li>
-      <a href="./timestamp-finalization/stage377_dual_timestamp_finalization_result.json">
-        Stage377 Dual-Timestamp Finalization Result JSON
-      </a>
-    </li>
-    <li>
-      <a href="./timestamp-finalization/stage377_superseding_final_acceptance_manifest.json">
-        Stage377 Superseding Final Acceptance Manifest JSON
-      </a>
-    </li>
-    <li>
-      <a href="./timestamp-finalization/stage377_dual_timestamp_finalization_summary.txt">
-        Stage377 Dual-Timestamp Finalization Summary
-      </a>
-    </li>
-  </ul>
-
-  <h3>Stage377 GitHub Actions</h3>
-
-  <ul>
-    <li>
-      <code>stage377-production-rfc3161.yml</code>
-    </li>
-    <li>
-      <code>stage377-production-opentimestamps.yml</code>
-    </li>
-    <li>
-      <code>stage377-dual-final-acceptance.yml</code>
-    </li>
-  </ul>
-
-  <h3>Publication Boundary</h3>
-
-  <ul>
-    <li>No private key is published.</li>
-    <li>No ML-DSA private key or seed is published.</li>
-    <li>No OIDC or GitHub token is published.</li>
-    <li>No raw QKD key material is published.</li>
-    <li>No raw RFC3161 TSQ file is published.</li>
-    <li>No raw RFC3161 TSR file is published.</li>
-    <li>No raw RFC3161 timestamp token is published.</li>
-    <li>No raw OpenTimestamps binary proof is published.</li>
-    <li>No TSA certificate bundle is published.</li>
-    <li>No free-form timestamp command is accepted.</li>
-    <li>
-      Only metadata receipts and public verification results are
-      published.
-    </li>
-  </ul>
-
-  <h3>Historic Preservation</h3>
-
-  <p>
-    Stage377 does not alter or overwrite Stage372 or Stage376.
-    It preserves both earlier stages as historical evidence.
-  </p>
-
-  <p>
-    Stage377 creates a later superseding operational state only
-    after the stronger dual-timestamp requirements are satisfied.
-    It does not rewrite an earlier final-acceptance record.
-  </p>
-
-  <h3>Current Meaning</h3>
-
-  <p>
-    Stage377 currently proves that the production dual-timestamp
-    workflows, fixed hash bindings, Fail-Closed finalization
-    engine, metadata receipt structures, and publication boundary
-    have been prepared.
-  </p>
-
-  <p>
-    The current initial result remains
-    <code>timestamp_finalization_pending</code>.
-  </p>
-
-  <p>
-    Stage377 therefore does not yet claim successful RFC3161
-    verification, successful OpenTimestamps verification,
-    dual-timestamp final acceptance, or maximum timestamp
-    assurance.
-  </p>
-
-  <p>
-    After both independent systems verify the same fixed Stage360
-    target, Stage377 can establish the later superseding effective
-    final-acceptance state.
-  </p>
-
-  <p>
-    <strong>License:</strong> MIT License
-  </p>
-
-</section>
-<!-- STAGE377_APPEND_ONLY_END -->
-
 </main>
 
 <script>
@@ -793,7 +416,7 @@ function generateStage328() {
 
   const box = document.getElementById("decision_box");
   box.className = "card " + decision;
-  
+
 const labelMap = { accept: "accept", pending: "pending", reject: "reject" };
 box.textContent = "Decision: " + (labelMap[decision] || decision);
 
@@ -2685,6 +2308,416 @@ maximum_timestamp_assurance: true
     final acceptance state while preserving the complete historical
     Stage372 evidence unchanged.
   </p>
+
+
+
+<!-- STAGE377_APPEND_ONLY_START -->
+<section id="stage377-production-dual-timestamp-finalization">
+
+  <h2>Stage377</h2>
+
+  <h3>
+    Production Dual-Timestamp Finalization and
+    Superseding Final Acceptance Gate
+  </h3>
+
+  <p>
+    Stage377 adds production dual-timestamp finalization directly
+    on top of Stage376.
+  </p>
+
+  <p>
+    Stage376 prepared the fixed Stage360 timestamp target,
+    dual-timestamp verification policy, Fail-Closed requirements,
+    publication boundary, and initial metadata receipt structures.
+  </p>
+
+  <p>
+    Stage377 connects that prepared state to production RFC3161
+    and OpenTimestamps verification receipts.
+  </p>
+
+  <p>
+    Stage377 does not remove, reorganize, replace, or rewrite the
+    Stage376 page. The complete Stage376 page remains preserved
+    before this Stage377 section.
+  </p>
+
+  <h3>Stage377 Purpose</h3>
+
+  <p>
+    Stage377 establishes a later superseding effective final
+    acceptance only when RFC3161 and OpenTimestamps independently
+    verify the same fixed Stage360 target.
+  </p>
+
+  <pre>Stage376 Prepared Dual-Timestamp State
+↓
+Production RFC3161 Verification
++
+Production OpenTimestamps Verification
+↓
+Same Stage360 Target Confirmation
+↓
+Stage377 Dual-Timestamp Finalization Gate
+↓
+Verified / Pending / Block</pre>
+
+  <h3>Current Fail-Closed State</h3>
+
+  <p>
+    <strong>Decision:</strong>
+    <code>timestamp_finalization_pending</code>
+  </p>
+
+  <p>
+    <strong>RFC3161 Verified:</strong> False<br>
+    <strong>OpenTimestamps Verified:</strong> False<br>
+    <strong>Effective Final Acceptance:</strong> False<br>
+    <strong>Maximum Timestamp Assurance:</strong> False
+  </p>
+
+  <p>
+    This is the correct initial state. Stage377 must not claim
+    successful dual-timestamp final acceptance until both
+    independent external verification receipts satisfy every
+    required condition.
+  </p>
+
+  <h3>Stage377 Adds</h3>
+
+  <ul>
+    <li>Production RFC3161 timestamp acquisition and verification</li>
+    <li>RFC3161 message-imprint verification</li>
+    <li>TSA signature verification</li>
+    <li>TSA certificate-chain verification</li>
+    <li>Production OpenTimestamps proof generation</li>
+    <li>OpenTimestamps public-anchor verification</li>
+    <li>Verified timestamp-time confirmation</li>
+    <li>Same Stage360 target SHA256 enforcement</li>
+    <li>Two-independent-proof requirement</li>
+    <li>Superseding effective final-acceptance decision</li>
+    <li>Metadata-only public verification receipts</li>
+    <li>Fail-Closed pending and block decisions</li>
+  </ul>
+
+  <h3>Production RFC3161 Verification</h3>
+
+  <p>
+    The RFC3161 workflow creates a timestamp request for the fixed
+    canonical Stage360 target.
+  </p>
+
+  <p>
+    The returned timestamp response is checked with OpenSSL.
+    Stage377 requires verification of the target message imprint,
+    TSA signature, certificate chain, generation time, and fixed
+    target SHA256.
+  </p>
+
+  <p>
+    Raw TSQ, TSR, RFC3161 token, and certificate-bundle files
+    remain outside the public <code>docs</code> directory.
+    Only a metadata verification receipt may be published.
+  </p>
+
+  <h3>Production OpenTimestamps Verification</h3>
+
+  <p>
+    The OpenTimestamps workflow creates a proof for the same fixed
+    Stage360 target.
+  </p>
+
+  <p>
+    A newly created OpenTimestamps proof may remain pending while
+    waiting for confirmation by a public blockchain anchor.
+    Stage377 preserves that waiting state and does not convert it
+    into a false success.
+  </p>
+
+  <p>
+    The proof is not accepted as verified until its target hash,
+    public anchor, anchor reference, and verified time satisfy the
+    Stage377 policy.
+  </p>
+
+  <h3>Stage377 Acceptance Conditions</h3>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Requirement</th>
+        <th>Mandatory condition</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Stage376 prerequisite</td>
+        <td>Required Stage376 result and fixed hash are valid</td>
+      </tr>
+      <tr>
+        <td>Historic Stage372 evidence</td>
+        <td>Fixed Stage372 evidence hash remains unchanged</td>
+      </tr>
+      <tr>
+        <td>RFC3161 target</td>
+        <td>Message imprint matches the fixed Stage360 target</td>
+      </tr>
+      <tr>
+        <td>RFC3161 signature</td>
+        <td>TSA signature verification succeeds</td>
+      </tr>
+      <tr>
+        <td>RFC3161 certificate</td>
+        <td>TSA certificate-chain verification succeeds</td>
+      </tr>
+      <tr>
+        <td>OpenTimestamps target</td>
+        <td>Proof target matches the fixed Stage360 target</td>
+      </tr>
+      <tr>
+        <td>OpenTimestamps anchor</td>
+        <td>Public anchor and verified time are confirmed</td>
+      </tr>
+      <tr>
+        <td>Common target</td>
+        <td>Both receipts bind to the same Stage360 SHA256</td>
+      </tr>
+      <tr>
+        <td>Verified proof count</td>
+        <td>Two independent timestamp proofs are verified</td>
+      </tr>
+      <tr>
+        <td>Publication boundary</td>
+        <td>No raw proof or private material exists under docs</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Stage377 Decisions</h3>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Decision</th>
+        <th>Meaning</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <code>timestamp_finalization_pending</code>
+        </td>
+        <td>
+          Neither external timestamp system has completed all
+          final verification requirements.
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <code>rfc3161_verified_opentimestamps_pending</code>
+        </td>
+        <td>
+          RFC3161 is verified, but OpenTimestamps remains pending.
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <code>opentimestamps_verified_rfc3161_pending</code>
+        </td>
+        <td>
+          OpenTimestamps is verified, but RFC3161 remains pending.
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <code>dual_timestamp_final_acceptance_verified</code>
+        </td>
+        <td>
+          Both independent proofs verified the same Stage360
+          target and the superseding effective final-acceptance
+          state was established.
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <code>block</code>
+        </td>
+        <td>
+          A prerequisite, required hash, proof, claim,
+          consistency rule, or publication boundary failed.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Fail-Closed Enforcement</h3>
+
+  <ul>
+    <li>
+      RFC3161 success alone is not dual-timestamp final acceptance.
+    </li>
+    <li>
+      OpenTimestamps success alone is not dual-timestamp final
+      acceptance.
+    </li>
+    <li>
+      A missing verification receipt keeps the state pending.
+    </li>
+    <li>
+      A target-hash mismatch blocks final acceptance.
+    </li>
+    <li>
+      A previous-hash mismatch blocks final acceptance.
+    </li>
+    <li>
+      An internally inconsistent receipt is blocked.
+    </li>
+    <li>
+      An unsupported verified claim is blocked.
+    </li>
+    <li>
+      A fabricated verified claim is blocked.
+    </li>
+    <li>
+      A publication-boundary violation is blocked.
+    </li>
+    <li>
+      A failed Stage376 prerequisite blocks final acceptance.
+    </li>
+  </ul>
+
+  <h3>Fixed Hash Bindings</h3>
+
+  <p>
+    <strong>Stage376 result SHA256</strong><br>
+    <code>32ff58a1f4d5837518226eee70b32833a8147617df3142ff2f641eca3f116138</code>
+  </p>
+
+  <p>
+    <strong>Stage360 target SHA256</strong><br>
+    <code>052c8f0283110e405443d56f2396c52a8486e7a70a489f831af107dad73ab1b5</code>
+  </p>
+
+  <p>
+    <strong>Historic Stage372 result SHA256</strong><br>
+    <code>ef1847f09c7862d271d71e548f403f75c91b93b2ffc21dec6016f53e0db7c3aa</code>
+  </p>
+
+  <h3>Public Stage377 Evidence</h3>
+
+  <ul>
+    <li>
+      <a href="./timestamp-policy/stage377_dual_timestamp_finalization_policy.json">
+        Stage377 Dual-Timestamp Finalization Policy JSON
+      </a>
+    </li>
+    <li>
+      <a href="./timestamp-evidence/stage377_rfc3161_verification_receipt.json">
+        Stage377 RFC3161 Verification Receipt JSON
+      </a>
+    </li>
+    <li>
+      <a href="./timestamp-evidence/stage377_opentimestamps_verification_receipt.json">
+        Stage377 OpenTimestamps Verification Receipt JSON
+      </a>
+    </li>
+    <li>
+      <a href="./timestamp-finalization/stage377_dual_timestamp_finalization_result.json">
+        Stage377 Dual-Timestamp Finalization Result JSON
+      </a>
+    </li>
+    <li>
+      <a href="./timestamp-finalization/stage377_superseding_final_acceptance_manifest.json">
+        Stage377 Superseding Final Acceptance Manifest JSON
+      </a>
+    </li>
+    <li>
+      <a href="./timestamp-finalization/stage377_dual_timestamp_finalization_summary.txt">
+        Stage377 Dual-Timestamp Finalization Summary
+      </a>
+    </li>
+  </ul>
+
+  <h3>Stage377 GitHub Actions</h3>
+
+  <ul>
+    <li>
+      <code>stage377-production-rfc3161.yml</code>
+    </li>
+    <li>
+      <code>stage377-production-opentimestamps.yml</code>
+    </li>
+    <li>
+      <code>stage377-dual-final-acceptance.yml</code>
+    </li>
+  </ul>
+
+  <h3>Publication Boundary</h3>
+
+  <ul>
+    <li>No private key is published.</li>
+    <li>No ML-DSA private key or seed is published.</li>
+    <li>No OIDC or GitHub token is published.</li>
+    <li>No raw QKD key material is published.</li>
+    <li>No raw RFC3161 TSQ file is published.</li>
+    <li>No raw RFC3161 TSR file is published.</li>
+    <li>No raw RFC3161 timestamp token is published.</li>
+    <li>No raw OpenTimestamps binary proof is published.</li>
+    <li>No TSA certificate bundle is published.</li>
+    <li>No free-form timestamp command is accepted.</li>
+    <li>
+      Only metadata receipts and public verification results are
+      published.
+    </li>
+  </ul>
+
+  <h3>Historic Preservation</h3>
+
+  <p>
+    Stage377 does not alter or overwrite Stage372 or Stage376.
+    It preserves both earlier stages as historical evidence.
+  </p>
+
+  <p>
+    Stage377 creates a later superseding operational state only
+    after the stronger dual-timestamp requirements are satisfied.
+    It does not rewrite an earlier final-acceptance record.
+  </p>
+
+  <h3>Current Meaning</h3>
+
+  <p>
+    Stage377 currently proves that the production dual-timestamp
+    workflows, fixed hash bindings, Fail-Closed finalization
+    engine, metadata receipt structures, and publication boundary
+    have been prepared.
+  </p>
+
+  <p>
+    The current initial result remains
+    <code>timestamp_finalization_pending</code>.
+  </p>
+
+  <p>
+    Stage377 therefore does not yet claim successful RFC3161
+    verification, successful OpenTimestamps verification,
+    dual-timestamp final acceptance, or maximum timestamp
+    assurance.
+  </p>
+
+  <p>
+    After both independent systems verify the same fixed Stage360
+    target, Stage377 can establish the later superseding effective
+    final-acceptance state.
+  </p>
+
+  <p>
+    <strong>License:</strong> MIT License
+  </p>
+
+</section>
+<!-- STAGE377_APPEND_ONLY_END -->
 
 </body>
 </html>
