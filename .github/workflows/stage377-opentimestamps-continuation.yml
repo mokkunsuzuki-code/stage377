@@ -1,0 +1,601 @@
+name: Stage377 OpenTimestamps Continuation Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: 暗号化OpenTimestamps継続証明を生成したActions run ID
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: stage377-opentimestamps-continuation
+  cancel-in-progress: false
+
+jobs:
+  continue-opentimestamps-verification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    env:
+      TARGET_PATH: docs/timestamp-evidence/stage376_stage360_timestamp_target.json
+      EXPECTED_TARGET_SHA256: 052c8f0283110e405443d56f2396c52a8486e7a70a489f831af107dad73ab1b5
+      STAGE376_RESULT_SHA256: 32ff58a1f4d5837518226eee70b32833a8147617df3142ff2f641eca3f116138
+
+      IMPORTED_ENCRYPTED_PATH: imported/encrypted-continuation/stage360-target.json.ots.enc
+      IMPORTED_RECEIPT_PATH: imported/original-receipt/stage377_opentimestamps_verification_receipt.json
+
+      PRIVATE_DIR: private/stage377-timestamps/opentimestamps-continuation
+      WORK_TARGET_PATH: private/stage377-timestamps/opentimestamps-continuation/stage360-target.json
+      PROOF_PATH: private/stage377-timestamps/opentimestamps-continuation/stage360-target.json.ots
+
+      RECEIPT_PATH: runner-output/stage377_opentimestamps_verification_receipt.json
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate source run ID
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "${{ inputs.source_run_id }}" in
+            ''|*[!0-9]*)
+              echo "ERROR: source_run_id must contain digits only."
+              exit 1
+              ;;
+          esac
+
+      - name: Download encrypted continuation proof
+        uses: actions/download-artifact@v4
+        with:
+          name: stage377-opentimestamps-encrypted-continuation
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: imported/encrypted-continuation
+
+      - name: Download original OpenTimestamps receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: stage377-opentimestamps-metadata-receipt
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: imported/original-receipt
+
+      - name: Prepare private continuation directory
+        shell: bash
+        env:
+          OTS_PROOF_PASSPHRASE: ${{ secrets.STAGE377_OTS_PROOF_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${OTS_PROOF_PASSPHRASE:-}" ]; then
+            echo "ERROR: STAGE377_OTS_PROOF_PASSPHRASE is missing."
+            exit 1
+          fi
+
+          test -s "${TARGET_PATH}"
+          test -s "${IMPORTED_ENCRYPTED_PATH}"
+          test -s "${IMPORTED_RECEIPT_PATH}"
+
+          mkdir -p "${PRIVATE_DIR}" runner-output
+
+          cp "${TARGET_PATH}" "${WORK_TARGET_PATH}"
+
+          openssl enc \
+            -d \
+            -aes-256-cbc \
+            -pbkdf2 \
+            -iter 200000 \
+            -in "${IMPORTED_ENCRYPTED_PATH}" \
+            -out "${PROOF_PATH}" \
+            -pass env:OTS_PROOF_PASSPHRASE
+
+          test -s "${PROOF_PATH}"
+
+      - name: Validate target and proof continuity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          target_path = Path(os.environ["TARGET_PATH"])
+          work_target_path = Path(os.environ["WORK_TARGET_PATH"])
+          proof_path = Path(os.environ["PROOF_PATH"])
+          receipt_path = Path(os.environ["IMPORTED_RECEIPT_PATH"])
+
+          expected_target_sha256 = os.environ["EXPECTED_TARGET_SHA256"]
+
+          def sha256_file(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          receipt = json.loads(
+              receipt_path.read_text(encoding="utf-8")
+          )
+
+          checks = {
+              "source_stage_is_377":
+                  receipt.get("stage") == 377,
+
+              "source_stage_is_376":
+                  receipt.get("source_stage") == 376,
+
+              "previous_hash_matches":
+                  receipt.get("previous_hash")
+                  == os.environ["STAGE376_RESULT_SHA256"],
+
+              "repository_target_matches":
+                  sha256_file(target_path)
+                  == expected_target_sha256,
+
+              "private_target_matches":
+                  sha256_file(work_target_path)
+                  == expected_target_sha256,
+
+              "receipt_target_matches":
+                  receipt.get(
+                      "timestamp_target", {}
+                  ).get("sha256")
+                  == expected_target_sha256,
+
+              "stage360_target_matches":
+                  receipt.get(
+                      "timestamp_target", {}
+                  ).get("stage360_target_sha256")
+                  == expected_target_sha256,
+
+              "proof_hash_matches_source_receipt":
+                  sha256_file(proof_path)
+                  == receipt.get("proof", {}).get(
+                      "proof_sha256"
+                  ),
+
+              "raw_proof_was_not_published":
+                  receipt.get(
+                      "publication_boundary", {}
+                  ).get("raw_ots_published")
+                  is False,
+          }
+
+          for name, passed in checks.items():
+              print(
+                  f"{'PASS' if passed else 'FAIL'}: {name}"
+              )
+
+          failed = [
+              name
+              for name, passed in checks.items()
+              if not passed
+          ]
+
+          if failed:
+              raise SystemExit(
+                  "ERROR: continuation integrity failure: "
+                  + ", ".join(failed)
+              )
+          PY
+
+      - name: Install OpenTimestamps client
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 -m pip install \
+            --disable-pip-version-check \
+            "opentimestamps-client==0.7.2"
+
+          ots --version
+
+      - name: Upgrade OpenTimestamps proof
+        shell: bash
+        run: |
+          set +e
+
+          ots upgrade "${PROOF_PATH}" \
+            > "${PRIVATE_DIR}/upgrade.log" 2>&1
+
+          UPGRADE_EXIT_CODE="$?"
+
+          set -e
+
+          cat "${PRIVATE_DIR}/upgrade.log"
+
+          echo \
+            "UPGRADE_EXIT_CODE=${UPGRADE_EXIT_CODE}" \
+            >> "${GITHUB_ENV}"
+
+          test -s "${PROOF_PATH}"
+
+          exit 0
+
+      - name: Verify upgraded OpenTimestamps proof
+        shell: bash
+        run: |
+          set +e
+
+          ots verify "${PROOF_PATH}" \
+            > "${PRIVATE_DIR}/verify.log" 2>&1
+
+          VERIFY_EXIT_CODE="$?"
+
+          set -e
+
+          cat "${PRIVATE_DIR}/verify.log"
+
+          echo \
+            "VERIFY_EXIT_CODE=${VERIFY_EXIT_CODE}" \
+            >> "${GITHUB_ENV}"
+
+          exit 0
+
+      - name: Build continuation verification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          import subprocess
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          target_path = Path(os.environ["TARGET_PATH"])
+          work_target_path = Path(
+              os.environ["WORK_TARGET_PATH"]
+          )
+          proof_path = Path(os.environ["PROOF_PATH"])
+          source_receipt_path = Path(
+              os.environ["IMPORTED_RECEIPT_PATH"]
+          )
+          private_dir = Path(os.environ["PRIVATE_DIR"])
+          output_path = Path(os.environ["RECEIPT_PATH"])
+
+          expected_target_sha256 = os.environ[
+              "EXPECTED_TARGET_SHA256"
+          ]
+
+          def sha256_file(path: Path) -> str:
+              return hashlib.sha256(
+                  path.read_bytes()
+              ).hexdigest()
+
+          def sha256_text(value: str) -> str:
+              return hashlib.sha256(
+                  value.encode("utf-8")
+              ).hexdigest()
+
+          source_receipt = json.loads(
+              source_receipt_path.read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          upgrade_log = (
+              private_dir / "upgrade.log"
+          ).read_text(
+              encoding="utf-8",
+              errors="replace",
+          )
+
+          verify_log = (
+              private_dir / "verify.log"
+          ).read_text(
+              encoding="utf-8",
+              errors="replace",
+          )
+
+          upgrade_exit_code = int(
+              os.environ["UPGRADE_EXIT_CODE"]
+          )
+          verify_exit_code = int(
+              os.environ["VERIFY_EXIT_CODE"]
+          )
+
+          lower_verify_log = verify_log.lower()
+
+          bitcoin_success = (
+              verify_exit_code == 0
+              and "bitcoin" in lower_verify_log
+              and (
+                  "success" in lower_verify_log
+                  or "attests" in lower_verify_log
+              )
+          )
+
+          anchor_reference = None
+
+          anchor_patterns = (
+              r"bitcoin\s+block\s+(\d+)",
+              r"block\s+height\s*[:#]?\s*(\d+)",
+              r"\bblock\s*[:#]?\s*(\d+)",
+              r"\b([0-9a-f]{64})\b",
+          )
+
+          for pattern in anchor_patterns:
+              match = re.search(
+                  pattern,
+                  verify_log,
+                  re.IGNORECASE,
+              )
+              if match:
+                  anchor_reference = match.group(1)
+                  break
+
+          verified_time = None
+
+          time_patterns = (
+              r"attests\s+data\s+existed\s+as\s+of\s+(.+)$",
+              r"attests\s+existence\s+as\s+of\s+(.+)$",
+              r"verified\s+against.*?\s+at\s+(.+)$",
+              r"timestamp\s+verified.*?\s+at\s+(.+)$",
+          )
+
+          for pattern in time_patterns:
+              match = re.search(
+                  pattern,
+                  verify_log,
+                  re.IGNORECASE | re.MULTILINE,
+              )
+              if match:
+                  verified_time = match.group(1).strip()
+                  break
+
+          target_sha256 = sha256_file(target_path)
+          work_target_sha256 = sha256_file(
+              work_target_path
+          )
+
+          target_matches = all([
+              target_sha256
+              == expected_target_sha256,
+
+              work_target_sha256
+              == expected_target_sha256,
+
+              source_receipt.get(
+                  "timestamp_target", {}
+              ).get("sha256")
+              == expected_target_sha256,
+          ])
+
+          confirmed_public_anchor = all([
+              bitcoin_success,
+              anchor_reference is not None,
+              verified_time is not None,
+          ])
+
+          fully_verified = all([
+              target_matches,
+              confirmed_public_anchor,
+          ])
+
+          receipt = {
+              "stage": 377,
+              "engine":
+                  "production_opentimestamps_continuation_verification",
+              "source_stage": 376,
+              "previous_hash":
+                  os.environ["STAGE376_RESULT_SHA256"],
+
+              "execution_status":
+                  "verified"
+                  if fully_verified
+                  else "pending_confirmation",
+
+              "opentimestamps_verified":
+                  fully_verified,
+
+              "verification_exit_code":
+                  verify_exit_code,
+
+              "timestamp_target": {
+                  "path": str(target_path),
+                  "sha256": target_sha256,
+                  "stage360_target_sha256":
+                      expected_target_sha256,
+                  "digest_matches_stage360":
+                      target_matches,
+              },
+
+              "proof": {
+                  "proof_sha256":
+                      sha256_file(proof_path),
+                  "source_proof_sha256":
+                      source_receipt.get(
+                          "proof", {}
+                      ).get("proof_sha256"),
+                  "raw_proof_published": False,
+                  "continuation_preserved": True,
+              },
+
+              "continuation": {
+                  "source_run_id":
+                      "${{ inputs.source_run_id }}",
+                  "source_receipt_sha256":
+                      sha256_file(source_receipt_path),
+                  "upgrade_exit_code":
+                      upgrade_exit_code,
+                  "upgrade_output_sha256":
+                      sha256_text(upgrade_log),
+              },
+
+              "verification": {
+                  "target_hash_matches":
+                      target_matches,
+                  "confirmed_public_anchor":
+                      confirmed_public_anchor,
+                  "confirmed_anchor_type":
+                      "bitcoin"
+                      if bitcoin_success
+                      else None,
+                  "confirmed_anchor_reference":
+                      anchor_reference,
+                  "verified_time":
+                      verified_time,
+                  "verification_output_sha256":
+                      sha256_text(verify_log),
+                  "client_version":
+                      subprocess.run(
+                          ["ots", "--version"],
+                          check=False,
+                          text=True,
+                          capture_output=True,
+                      ).stdout.strip(),
+              },
+
+              "publication_boundary": {
+                  "public_metadata_receipt_only": True,
+                  "raw_ots_published": False,
+                  "encrypted_continuation_only": True,
+                  "private_key_used": False,
+              },
+
+              "github_actions": {
+                  "repository":
+                      os.getenv("GITHUB_REPOSITORY"),
+                  "workflow":
+                      os.getenv("GITHUB_WORKFLOW"),
+                  "run_id":
+                      os.getenv("GITHUB_RUN_ID"),
+                  "run_attempt":
+                      os.getenv("GITHUB_RUN_ATTEMPT"),
+                  "commit_sha":
+                      os.getenv("GITHUB_SHA"),
+                  "ref":
+                      os.getenv("GITHUB_REF"),
+              },
+
+              "generated_at":
+                  datetime.now(
+                      timezone.utc
+                  ).isoformat(),
+
+              "note": (
+                  "A pending status is retained until "
+                  "the same OpenTimestamps proof verifies "
+                  "against a confirmed Bitcoin anchor."
+              ),
+          }
+
+          if not target_matches:
+              raise SystemExit(
+                  "ERROR: canonical target mismatch."
+              )
+
+          output_path.parent.mkdir(
+              parents=True,
+              exist_ok=True,
+          )
+
+          output_path.write_text(
+              json.dumps(
+                  receipt,
+                  ensure_ascii=False,
+                  indent=2,
+                  sort_keys=True,
+              ) + "\n",
+              encoding="utf-8",
+          )
+
+          print(
+              output_path.read_text(
+                  encoding="utf-8"
+              )
+          )
+          PY
+
+      - name: Encrypt upgraded continuation proof
+        shell: bash
+        env:
+          OTS_PROOF_PASSPHRASE: ${{ secrets.STAGE377_OTS_PROOF_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${OTS_PROOF_PASSPHRASE:-}" ]; then
+            echo "ERROR: STAGE377_OTS_PROOF_PASSPHRASE is missing."
+            exit 1
+          fi
+
+          mkdir -p runner-output/private-continuation
+
+          openssl enc \
+            -aes-256-cbc \
+            -pbkdf2 \
+            -iter 200000 \
+            -salt \
+            -in "${PROOF_PATH}" \
+            -out runner-output/private-continuation/stage360-target.json.ots.enc \
+            -pass env:OTS_PROOF_PASSPHRASE
+
+          test -s \
+            runner-output/private-continuation/stage360-target.json.ots.enc
+
+      - name: Validate publication boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -s "${RECEIPT_PATH}"
+
+          if find runner-output -type f \
+            \( \
+              -name "*.ots" \
+              -o -name "*.tsq" \
+              -o -name "*.tsr" \
+              -o -name "*.tst" \
+              -o -name "*.p7s" \
+              -o -name "*.pem" \
+              -o -name "*.key" \
+              -o -name "*.p12" \
+              -o -name "*.pfx" \
+            \) -print | grep -q .
+          then
+            echo "ERROR: raw proof or private material entered runner-output."
+            exit 1
+          fi
+
+          python3 -m json.tool \
+            "${RECEIPT_PATH}" \
+            >/dev/null
+
+      - name: Upload continuation metadata receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage377-opentimestamps-metadata-receipt
+          path: runner-output/stage377_opentimestamps_verification_receipt.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload encrypted upgraded continuation proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage377-opentimestamps-encrypted-continuation
+          path: runner-output/private-continuation/stage360-target.json.ots.enc
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Delete private continuation material
+        if: always()
+        shell: bash
+        run: |
+          rm -rf \
+            "${PRIVATE_DIR}" \
+            imported \
+            runner-output/private-continuation
+
+          test ! -e "${PRIVATE_DIR}"
+          test ! -e imported
+          test ! -e runner-output/private-continuation
