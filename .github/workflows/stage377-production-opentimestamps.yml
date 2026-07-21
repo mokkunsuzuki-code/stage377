@@ -22,6 +22,7 @@ jobs:
       PRIVATE_DIR: private/stage377-timestamps/opentimestamps
       WORK_TARGET_PATH: private/stage377-timestamps/opentimestamps/stage360-target.json
       PROOF_PATH: private/stage377-timestamps/opentimestamps/stage360-target.json.ots
+      ENCRYPTED_PROOF_PATH: runner-output/private-continuation/stage360-target.json.ots.enc
       RECEIPT_PATH: runner-output/stage377_opentimestamps_verification_receipt.json
 
     steps:
@@ -111,6 +112,32 @@ jobs:
           # そのため、ここではWorkflow自体を偽の成功・失敗にせず、
           # 次の工程で事実に基づく状態をJSONへ記録します。
           exit 0
+
+      - name: Encrypt OpenTimestamps continuation proof
+        shell: bash
+        env:
+          OTS_PROOF_PASSPHRASE: ${{ secrets.STAGE377_OTS_PROOF_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${OTS_PROOF_PASSPHRASE:-}" ]; then
+            echo "ERROR: STAGE377_OTS_PROOF_PASSPHRASE is missing."
+            exit 1
+          fi
+
+          test -s "${PROOF_PATH}"
+
+          mkdir -p "$(dirname "${ENCRYPTED_PROOF_PATH}")"
+
+          openssl enc             -aes-256-cbc             -pbkdf2             -iter 200000             -salt             -in "${PROOF_PATH}"             -out "${ENCRYPTED_PROOF_PATH}"             -pass env:OTS_PROOF_PASSPHRASE
+
+          test -s "${ENCRYPTED_PROOF_PATH}"
+
+          if cmp -s             "${PROOF_PATH}"             "${ENCRYPTED_PROOF_PATH}"
+          then
+            echo "ERROR: encrypted proof equals raw proof."
+            exit 1
+          fi
 
       - name: Build metadata-only OpenTimestamps receipt
         shell: bash
@@ -394,7 +421,22 @@ jobs:
           name: stage377-opentimestamps-metadata-receipt
           path: runner-output/stage377_opentimestamps_verification_receipt.json
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 90
+
+      - name: Upload encrypted OpenTimestamps continuation proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage377-opentimestamps-encrypted-continuation
+          path: runner-output/private-continuation/stage360-target.json.ots.enc
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Delete encrypted runner-output copy
+        if: always()
+        shell: bash
+        run: |
+          rm -rf runner-output/private-continuation
+          test ! -e runner-output/private-continuation
 
       - name: Delete raw OpenTimestamps files
         if: always()
