@@ -5,6 +5,17 @@ on:
     - cron: "17 */6 * * *"
 
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "Execution mode: retry or finalize"
+        required: false
+        default: retry
+        type: string
+      ots_run_id:
+        description: "OpenTimestamps continuation workflow run ID"
+        required: false
+        default: ""
+        type: string
 
   workflow_run:
     workflows:
@@ -24,7 +35,10 @@ jobs:
   redispatch-opentimestamps-continuation:
     if: >-
       github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch'
+      (
+        github.event_name == 'workflow_dispatch' &&
+        inputs.mode != 'finalize'
+      )
 
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -224,8 +238,15 @@ jobs:
 
   finalize-after-opentimestamps-verification:
     if: >-
-      github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success'
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success'
+      ) ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        inputs.mode == 'finalize' &&
+        inputs.ots_run_id != ''
+      )
 
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -233,7 +254,12 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPOSITORY: ${{ github.repository }}
-      OTS_RUN_ID: ${{ github.event.workflow_run.id }}
+      OTS_RUN_ID: >-
+        ${{
+          github.event_name == 'workflow_dispatch'
+          && inputs.ots_run_id
+          || github.event.workflow_run.id
+        }}
 
     steps:
       - name: Download completed OpenTimestamps metadata receipt

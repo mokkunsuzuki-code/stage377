@@ -9,7 +9,7 @@ on:
         type: string
 
 permissions:
-  actions: read
+  actions: write
   contents: read
 
 concurrency:
@@ -586,6 +586,30 @@ jobs:
           path: runner-output/private-continuation/stage360-target.json.ots.enc
           if-no-files-found: error
           retention-days: 90
+
+      - name: Dispatch automatic finalization inspection
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          case "${GITHUB_RUN_ID}" in
+            ''|*[!0-9]*)
+              echo "ERROR: invalid continuation workflow run ID."
+              exit 1
+              ;;
+          esac
+
+          gh workflow run \
+            stage377-auto-finalization.yml \
+            --repo "${GITHUB_REPOSITORY}" \
+            --ref main \
+            --field mode=finalize \
+            --field ots_run_id="${GITHUB_RUN_ID}"
+
+          echo "Automatic finalization inspection dispatched."
+          echo "ots_run_id=${GITHUB_RUN_ID}"
 
       - name: Delete private continuation material
         if: always()
