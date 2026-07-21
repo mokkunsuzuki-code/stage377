@@ -241,3 +241,73 @@ jobs:
           path: runner-output/
           if-no-files-found: error
           retention-days: 30
+
+      - name: Determine whether Stage378 may start
+        id: stage378_gate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          result_path = Path(
+              "docs/timestamp-finalization/"
+              "stage377_dual_timestamp_finalization_result.json"
+          )
+
+          result = json.loads(
+              result_path.read_text(encoding="utf-8")
+          )
+
+          verified = all([
+              result.get("decision")
+                  == "dual_timestamp_final_acceptance_verified",
+              result.get("effective_final_acceptance") is True,
+              result.get("timestamp_verified") is True,
+              result.get("rfc3161_verified") is True,
+              result.get("opentimestamps_verified") is True,
+              result.get("verified_proof_count") == 2,
+          ])
+
+          with open(
+              os.environ["GITHUB_OUTPUT"],
+              "a",
+              encoding="utf-8",
+          ) as output:
+              output.write(
+                  "dispatch_stage378="
+                  + ("true" if verified else "false")
+                  + "\n"
+              )
+
+          print(
+              "Dispatch Stage378:",
+              "true" if verified else "false",
+          )
+          PY
+
+      - name: Dispatch Stage378 QKD binding
+        if: steps.stage378_gate.outputs.dispatch_stage378 == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.STAGE378_DISPATCH_TOKEN }}
+          STAGE377_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "ERROR: STAGE378_DISPATCH_TOKEN is not configured."
+            exit 1
+          fi
+
+          gh api \
+            --method POST \
+            repos/mokkunsuzuki-code/stage378/actions/workflows/stage378-qkd-binding.yml/dispatches \
+            -f ref=main \
+            -f "inputs[stage377_run_id]=${STAGE377_RUN_ID}"
+
+          echo "Dispatched Stage378 QKD binding."
+          echo "Stage377 source run ID: ${STAGE377_RUN_ID}"
