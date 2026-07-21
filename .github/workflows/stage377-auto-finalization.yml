@@ -2,7 +2,7 @@ name: Stage377 Automatic Dual Timestamp Finalization
 
 on:
   schedule:
-    - cron: "17 */6 * * *"
+    - cron: "17 0,12 * * *"
 
   workflow_dispatch:
     inputs:
@@ -209,6 +209,36 @@ jobs:
           )
           PY
 
+      - name: Write automatic verification summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "# Stage377 Automatic Bitcoin Anchor Check"
+            echo
+            echo "- Schedule: 09:17 / 21:17 JST"
+            echo "- Source run ID: ${{ steps.source.outputs.source_run_id }}"
+            echo "- Source kind: ${{ steps.source.outputs.source_kind }}"
+            echo
+
+            if [ "${{ steps.decision.outputs.continuation_required }}" = "true" ]; then
+              echo "## Current status"
+              echo
+              echo "⌛ Bitcoin anchor confirmation is pending."
+              echo
+              echo "The same encrypted OpenTimestamps proof will be verified again."
+              echo
+              echo "Stage377 remains Fail-Closed."
+            else
+              echo "## Current status"
+              echo
+              echo "✅ Bitcoin anchor is verified."
+              echo
+              echo "Stage377 finalization will be dispatched automatically."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Dispatch OpenTimestamps continuation verification
         if: steps.decision.outputs.continuation_required == 'true'
         shell: bash
@@ -226,15 +256,24 @@ jobs:
             "Dispatched continuation from run " \
             "${{ steps.source.outputs.source_run_id }}."
 
-      - name: Skip already verified proof
+      - name: Dispatch finalization for verified Bitcoin anchor
         if: steps.decision.outputs.continuation_required == 'false'
         shell: bash
         run: |
           set -euo pipefail
 
+          gh workflow run \
+            stage377-auto-finalization.yml \
+            --repo "${REPOSITORY}" \
+            --ref main \
+            --field mode=finalize \
+            --field \
+            ots_run_id="${{ steps.source.outputs.source_run_id }}"
+
           echo \
-            "OpenTimestamps is already verified. " \
-            "No continuation run was dispatched."
+            "OpenTimestamps Bitcoin anchor is verified. " \
+            "Dispatched Stage377 finalization from run " \
+            "${{ steps.source.outputs.source_run_id }}."
 
   finalize-after-opentimestamps-verification:
     if: >-
