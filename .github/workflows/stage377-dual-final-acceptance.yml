@@ -1,0 +1,243 @@
+name: Stage377 Dual Timestamp Final Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      rfc3161_run_id:
+        description: RFC3161 metadata receiptを生成したActions run ID
+        required: true
+        type: string
+      opentimestamps_run_id:
+        description: OpenTimestamps metadata receiptを生成したActions run ID
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: stage377-dual-final-acceptance
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download RFC3161 metadata receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: stage377-rfc3161-metadata-receipt
+          run-id: ${{ inputs.rfc3161_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: imported/rfc3161
+
+      - name: Download OpenTimestamps metadata receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: stage377-opentimestamps-metadata-receipt
+          run-id: ${{ inputs.opentimestamps_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: imported/opentimestamps
+
+      - name: Import metadata receipts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RFC_RECEIPT="$(
+            find imported/rfc3161 \
+              -type f \
+              -name \
+              'stage377_rfc3161_verification_receipt.json' \
+              -print \
+              -quit
+          )"
+
+          OTS_RECEIPT="$(
+            find imported/opentimestamps \
+              -type f \
+              -name \
+              'stage377_opentimestamps_verification_receipt.json' \
+              -print \
+              -quit
+          )"
+
+          if [ -z "${RFC_RECEIPT}" ]; then
+            echo "ERROR: RFC3161 receipt was not found."
+            exit 1
+          fi
+
+          if [ -z "${OTS_RECEIPT}" ]; then
+            echo "ERROR: OpenTimestamps receipt was not found."
+            exit 1
+          fi
+
+          mkdir -p docs/timestamp-evidence
+
+          cp \
+            "${RFC_RECEIPT}" \
+            docs/timestamp-evidence/stage377_rfc3161_verification_receipt.json
+
+          cp \
+            "${OTS_RECEIPT}" \
+            docs/timestamp-evidence/stage377_opentimestamps_verification_receipt.json
+
+      - name: Validate imported receipts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 -m json.tool \
+            docs/timestamp-evidence/stage377_rfc3161_verification_receipt.json \
+            >/dev/null
+
+          python3 -m json.tool \
+            docs/timestamp-evidence/stage377_opentimestamps_verification_receipt.json \
+            >/dev/null
+
+      - name: Run Stage377 finalization engine
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 -m py_compile \
+            scripts/stage377_dual_timestamp_finalization.py
+
+          python3 \
+            scripts/stage377_dual_timestamp_finalization.py
+
+      - name: Validate Stage377 result
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RESULT_PATH="docs/timestamp-finalization/stage377_dual_timestamp_finalization_result.json"
+          MANIFEST_PATH="docs/timestamp-finalization/stage377_superseding_final_acceptance_manifest.json"
+
+          test -s "${RESULT_PATH}"
+          test -s "${MANIFEST_PATH}"
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          result_path = Path(
+              "docs/timestamp-finalization/"
+              "stage377_dual_timestamp_finalization_result.json"
+          )
+
+          manifest_path = Path(
+              "docs/timestamp-finalization/"
+              "stage377_superseding_final_acceptance_manifest.json"
+          )
+
+          result = json.loads(
+              result_path.read_text(encoding="utf-8")
+          )
+
+          manifest = json.loads(
+              manifest_path.read_text(encoding="utf-8")
+          )
+
+          allowed_decisions = {
+              "timestamp_finalization_pending",
+              "rfc3161_verified_opentimestamps_pending",
+              "opentimestamps_verified_rfc3161_pending",
+              "dual_timestamp_final_acceptance_verified",
+              "block"
+          }
+
+          decision = result.get("decision")
+
+          if decision not in allowed_decisions:
+              raise SystemExit(
+                  f"ERROR: unsupported decision: {decision}"
+              )
+
+          if decision == (
+              "dual_timestamp_final_acceptance_verified"
+          ):
+              required = [
+                  result.get("rfc3161_verified") is True,
+                  result.get(
+                      "opentimestamps_verified"
+                  ) is True,
+                  result.get(
+                      "effective_final_acceptance"
+                  ) is True,
+                  result.get("timestamp_verified") is True,
+                  result.get("verified_proof_count") == 2,
+                  manifest.get(
+                      "effective_final_acceptance"
+                  ) is True
+              ]
+
+              if not all(required):
+                  raise SystemExit(
+                      "ERROR: inconsistent final acceptance."
+                  )
+
+          print("Stage377 decision:", decision)
+          PY
+
+      - name: Validate public boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if find docs -type f \
+            \( \
+              -name "*.ots" \
+              -o -name "*.tsq" \
+              -o -name "*.tsr" \
+              -o -name "*.tst" \
+              -o -name "*.p7s" \
+              -o -name "*.key" \
+              -o -name "*.p12" \
+              -o -name "*.pfx" \
+            \) -print | grep -q .
+          then
+            echo "ERROR: forbidden raw material found in docs."
+            exit 1
+          fi
+
+      - name: Prepare final metadata package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p runner-output
+
+          cp \
+            docs/timestamp-evidence/stage377_rfc3161_verification_receipt.json \
+            runner-output/
+
+          cp \
+            docs/timestamp-evidence/stage377_opentimestamps_verification_receipt.json \
+            runner-output/
+
+          cp \
+            docs/timestamp-finalization/stage377_dual_timestamp_finalization_result.json \
+            runner-output/
+
+          cp \
+            docs/timestamp-finalization/stage377_superseding_final_acceptance_manifest.json \
+            runner-output/
+
+          cp \
+            docs/timestamp-finalization/stage377_dual_timestamp_finalization_summary.txt \
+            runner-output/
+
+      - name: Upload Stage377 finalization package
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage377-dual-timestamp-finalization-package
+          path: runner-output/
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,403 @@
+name: Stage377 Production RFC3161 Verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stage377-production-rfc3161
+  cancel-in-progress: false
+
+jobs:
+  verify-rfc3161:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    env:
+      TARGET_PATH: docs/timestamp-evidence/stage376_stage360_timestamp_target.json
+      EXPECTED_TARGET_SHA256: 052c8f0283110e405443d56f2396c52a8486e7a70a489f831af107dad73ab1b5
+      STAGE376_RESULT_SHA256: 32ff58a1f4d5837518226eee70b32833a8147617df3142ff2f641eca3f116138
+      TSA_URL: http://timestamp.digicert.com
+      PRIVATE_DIR: private/stage377-timestamps/rfc3161
+      PUBLIC_DIR: runner-output
+      RECEIPT_PATH: runner-output/stage377_rfc3161_verification_receipt.json
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare private directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${PRIVATE_DIR}" "${PUBLIC_DIR}"
+
+      - name: Verify canonical Stage360 target
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -s "${TARGET_PATH}"
+
+          ACTUAL_SHA256="$(
+            sha256sum "${TARGET_PATH}" |
+            awk '{print $1}'
+          )"
+
+          echo "Actual SHA256:   ${ACTUAL_SHA256}"
+          echo "Expected SHA256: ${EXPECTED_TARGET_SHA256}"
+
+          if [ "${ACTUAL_SHA256}" != "${EXPECTED_TARGET_SHA256}" ]; then
+            echo "ERROR: Stage360 target SHA256 mismatch."
+            exit 1
+          fi
+
+      - name: Create RFC3161 timestamp request
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          openssl ts \
+            -query \
+            -data "${TARGET_PATH}" \
+            -sha256 \
+            -cert \
+            -out "${PRIVATE_DIR}/request.tsq"
+
+          test -s "${PRIVATE_DIR}/request.tsq"
+
+      - name: Request RFC3161 timestamp
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          HTTP_CODE="$(
+            curl \
+              --silent \
+              --show-error \
+              --location \
+              --output "${PRIVATE_DIR}/response.tsr" \
+              --dump-header "${PRIVATE_DIR}/headers.txt" \
+              --write-out '%{http_code}' \
+              --header 'Content-Type: application/timestamp-query' \
+              --data-binary "@${PRIVATE_DIR}/request.tsq" \
+              "${TSA_URL}"
+          )"
+
+          echo "HTTP_CODE=${HTTP_CODE}" >> "${GITHUB_ENV}"
+
+          if [ "${HTTP_CODE}" != "200" ]; then
+            echo "ERROR: TSA returned HTTP ${HTTP_CODE}."
+            exit 1
+          fi
+
+          test -s "${PRIVATE_DIR}/response.tsr"
+
+      - name: Parse RFC3161 response
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          openssl ts \
+            -reply \
+            -in "${PRIVATE_DIR}/response.tsr" \
+            -text \
+            > "${PRIVATE_DIR}/response.txt"
+
+          openssl ts \
+            -reply \
+            -in "${PRIVATE_DIR}/response.tsr" \
+            -token_out \
+            -out "${PRIVATE_DIR}/token.p7s"
+
+          openssl pkcs7 \
+            -inform DER \
+            -in "${PRIVATE_DIR}/token.p7s" \
+            -print_certs \
+            -out "${PRIVATE_DIR}/certs.pem"
+
+          openssl x509 \
+            -in "${PRIVATE_DIR}/certs.pem" \
+            -noout \
+            -subject \
+            -issuer \
+            -serial \
+            -dates \
+            -fingerprint \
+            -sha256 \
+            > "${PRIVATE_DIR}/certificate.txt"
+
+      - name: Verify RFC3161 timestamp
+        shell: bash
+        run: |
+          set +e
+
+          openssl ts \
+            -verify \
+            -data "${TARGET_PATH}" \
+            -in "${PRIVATE_DIR}/response.tsr" \
+            -CAfile /etc/ssl/certs/ca-certificates.crt \
+            -untrusted "${PRIVATE_DIR}/certs.pem" \
+            > "${PRIVATE_DIR}/verify.log" 2>&1
+
+          VERIFY_EXIT_CODE="$?"
+
+          set -e
+
+          cat "${PRIVATE_DIR}/verify.log"
+          echo "VERIFY_EXIT_CODE=${VERIFY_EXIT_CODE}" >> "${GITHUB_ENV}"
+
+          if [ "${VERIFY_EXIT_CODE}" -ne 0 ]; then
+            echo "ERROR: RFC3161 verification failed."
+            exit 1
+          fi
+
+          grep -Fq \
+            "Verification: OK" \
+            "${PRIVATE_DIR}/verify.log"
+
+      - name: Build metadata-only RFC3161 receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          import subprocess
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          private_dir = Path(os.environ["PRIVATE_DIR"])
+          target_path = Path(os.environ["TARGET_PATH"])
+          receipt_path = Path(os.environ["RECEIPT_PATH"])
+
+          def sha256_file(path):
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          def find_value(pattern, text):
+              match = re.search(pattern, text, re.MULTILINE)
+              return match.group(1).strip() if match else None
+
+          response_text = (
+              private_dir / "response.txt"
+          ).read_text(
+              encoding="utf-8",
+              errors="replace"
+          )
+
+          certificate_text = (
+              private_dir / "certificate.txt"
+          ).read_text(
+              encoding="utf-8",
+              errors="replace"
+          )
+
+          verify_log = (
+              private_dir / "verify.log"
+          ).read_text(
+              encoding="utf-8",
+              errors="replace"
+          )
+
+          target_sha256 = sha256_file(target_path)
+          expected_sha256 = os.environ["EXPECTED_TARGET_SHA256"]
+
+          receipt = {
+              "stage": 377,
+              "engine": "production_rfc3161_timestamp_verification",
+              "source_stage": 376,
+              "previous_hash": os.environ["STAGE376_RESULT_SHA256"],
+              "execution_status": "verified",
+              "rfc3161_verified": True,
+              "verification_exit_code": int(
+                  os.environ["VERIFY_EXIT_CODE"]
+              ),
+              "timestamp_authority": {
+                  "provider": "DigiCert",
+                  "url": os.environ["TSA_URL"],
+                  "http_status": int(os.environ["HTTP_CODE"])
+              },
+              "timestamp_target": {
+                  "path": str(target_path),
+                  "sha256": target_sha256,
+                  "stage360_target_sha256": expected_sha256,
+                  "digest_matches_stage360":
+                      target_sha256 == expected_sha256
+              },
+              "timestamp_request": {
+                  "digest_algorithm": "sha256",
+                  "request_sha256": sha256_file(
+                      private_dir / "request.tsq"
+                  ),
+                  "certificate_requested": True,
+                  "raw_request_published": False
+              },
+              "timestamp_response": {
+                  "response_status": find_value(
+                      r"^Status:\s*(.+)$",
+                      response_text
+                  ),
+                  "policy_oid": find_value(
+                      r"^Policy OID:\s*(.+)$",
+                      response_text
+                  ),
+                  "serial_number": find_value(
+                      r"^Serial number:\s*(.+)$",
+                      response_text
+                  ),
+                  "generation_time": find_value(
+                      r"^Time stamp:\s*(.+)$",
+                      response_text
+                  ),
+                  "response_sha256": sha256_file(
+                      private_dir / "response.tsr"
+                  ),
+                  "timestamp_token_sha256": sha256_file(
+                      private_dir / "token.p7s"
+                  ),
+                  "raw_response_published": False,
+                  "raw_token_published": False
+              },
+              "tsa_signer_certificate": {
+                  "subject": find_value(
+                      r"^subject=(.+)$",
+                      certificate_text
+                  ),
+                  "issuer": find_value(
+                      r"^issuer=(.+)$",
+                      certificate_text
+                  ),
+                  "serial": find_value(
+                      r"^serial=(.+)$",
+                      certificate_text
+                  ),
+                  "not_before": find_value(
+                      r"^notBefore=(.+)$",
+                      certificate_text
+                  ),
+                  "not_after": find_value(
+                      r"^notAfter=(.+)$",
+                      certificate_text
+                  ),
+                  "sha256_fingerprint": find_value(
+                      r"^sha256 Fingerprint=(.+)$",
+                      certificate_text
+                  )
+              },
+              "verification": {
+                  "openssl_ts_verify": True,
+                  "target_message_imprint_match": True,
+                  "tsa_signature_valid": True,
+                  "certificate_chain_valid": True,
+                  "verification_output_sha256":
+                      hashlib.sha256(
+                          verify_log.encode("utf-8")
+                      ).hexdigest(),
+                  "openssl_version": subprocess.run(
+                      ["openssl", "version"],
+                      check=True,
+                      text=True,
+                      capture_output=True
+                  ).stdout.strip()
+              },
+              "publication_boundary": {
+                  "public_metadata_receipt_only": True,
+                  "raw_tsq_published": False,
+                  "raw_tsr_published": False,
+                  "raw_token_published": False,
+                  "certificate_bundle_published": False,
+                  "private_key_used": False
+              },
+              "github_actions": {
+                  "repository": os.getenv("GITHUB_REPOSITORY"),
+                  "workflow": os.getenv("GITHUB_WORKFLOW"),
+                  "run_id": os.getenv("GITHUB_RUN_ID"),
+                  "run_attempt": os.getenv("GITHUB_RUN_ATTEMPT"),
+                  "commit_sha": os.getenv("GITHUB_SHA"),
+                  "ref": os.getenv("GITHUB_REF")
+              },
+              "generated_at":
+                  datetime.now(timezone.utc).isoformat()
+          }
+
+          required = [
+              receipt["rfc3161_verified"],
+              receipt["verification"]["openssl_ts_verify"],
+              receipt["verification"]["target_message_imprint_match"],
+              receipt["verification"]["tsa_signature_valid"],
+              receipt["verification"]["certificate_chain_valid"],
+              receipt["timestamp_target"]["digest_matches_stage360"],
+              bool(
+                  receipt["timestamp_response"]["generation_time"]
+              )
+          ]
+
+          if not all(required):
+              raise SystemExit(
+                  "ERROR: incomplete RFC3161 verification."
+              )
+
+          receipt_path.parent.mkdir(
+              parents=True,
+              exist_ok=True
+          )
+
+          receipt_path.write_text(
+              json.dumps(
+                  receipt,
+                  ensure_ascii=False,
+                  indent=2,
+                  sort_keys=True
+              ) + "\n",
+              encoding="utf-8"
+          )
+
+          print(receipt_path.read_text(encoding="utf-8"))
+          PY
+
+      - name: Validate RFC3161 publication boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -s "${RECEIPT_PATH}"
+
+          if find "${PUBLIC_DIR}" -type f \
+            \( \
+              -name "*.tsq" \
+              -o -name "*.tsr" \
+              -o -name "*.tst" \
+              -o -name "*.p7s" \
+              -o -name "*.pem" \
+              -o -name "*.der" \
+              -o -name "*.ots" \
+              -o -name "*.key" \
+            \) -print | grep -q .
+          then
+            echo "ERROR: raw timestamp material entered public output."
+            exit 1
+          fi
+
+          python3 -m json.tool \
+            "${RECEIPT_PATH}" \
+            >/dev/null
+
+      - name: Upload RFC3161 metadata receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage377-rfc3161-metadata-receipt
+          path: runner-output/stage377_rfc3161_verification_receipt.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Delete raw RFC3161 files
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "${PRIVATE_DIR}"
+          test ! -e "${PRIVATE_DIR}"

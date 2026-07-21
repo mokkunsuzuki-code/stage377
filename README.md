@@ -1,143 +1,270 @@
-# Stage375: Production ML-DSA-65 Dual-Signature Verification & Downgrade Prevention Gate
+# Stage377: Production Dual-Timestamp Finalization and Superseding Final Acceptance Gate
 
-Stage375 extends Stage374 by adding real ML-DSA-65 signing and verification for the same Stage373 attestation blob already signed and verified through Sigstore, Cosign, GitHub Actions OIDC, and Rekor.
+Stage377 extends Stage376 by connecting two independently verified production timestamp receipts to a new effective final-acceptance decision.
+
+Stage377 does not rewrite the Stage372 or Stage376 historical records. It preserves both records and creates a new Stage377 result only after the required external evidence has been evaluated.
 
 ## Purpose
 
-Stage374 established:
+Stage376 established the fail-closed acceptance model for external timestamps.
 
-- GitHub Actions OIDC identity
-- Cosign signing
-- Sigstore bundle verification
-- Rekor inclusion verification
-- concrete Rekor log position
-- `external_transparency_bound: true`
+Stage377 adds the operational finalization layer:
 
-Stage375 adds:
+1. Produce and verify an RFC3161 timestamp receipt.
+2. Produce and verify an OpenTimestamps receipt.
+3. Confirm that both proofs refer to the same established Stage360 target.
+4. Bind the new decision to the established Stage376 result hash.
+5. Issue a new effective final acceptance only when both independent proofs verify.
+6. Preserve the Stage372 and Stage376 historical records without modification.
 
-- a real ML-DSA-65 key pair
-- ML-DSA-65 signing
-- ML-DSA-65 signature verification
-- public-key fingerprint verification
-- exact target binding with the Stage374 Sigstore signature
-- logical attestation hash consistency
-- fail-closed PQC downgrade prevention
+## Established Bindings
 
-## Dual-Signature Model
+Stage376 result SHA256:
 
-The same Stage373 file is signed through two independent signature rails:
+`32ff58a1f4d5837518226eee70b32833a8147617df3142ff2f641eca3f116138`
 
-1. Stage374 Sigstore / Cosign / Rekor
-2. Stage375 ML-DSA-65
+Canonical Stage360 timestamp target SHA256:
 
-Both signatures must target:
+`052c8f0283110e405443d56f2396c52a8486e7a70a489f831af107dad73ab1b5`
 
-`docs/final-acceptance-attestation/stage373_final_acceptance_attestation.json`
+Historic Stage372 result SHA256:
 
-Expected blob SHA256:
-
-`6ecf58d0070d8db920744b7d32331e01e8e1aef2eded02dde428b80def79d5e6`
-
-Expected logical attestation SHA256:
-
-`d54b7524ced420f664da9d370985585d649ce80584b64bdf87342f89dbfde89f`
+`ef1847f09c7862d271d71e548f403f75c91b93b2ffc21dec6016f53e0db7c3aa`
 
 ## Initial State
 
-Before the GitHub Actions ML-DSA workflow runs:
+Before both production timestamp receipts are verified:
 
-- `decision: mldsa_execution_pending`
-- `mldsa_signature_verified: false`
-- `dual_signature_target_matches: false`
-- `pqc_downgrade_prevented: false`
+- `decision: timestamp_finalization_pending`
+- `rfc3161_verified: false`
+- `opentimestamps_verified: false`
+- `effective_final_acceptance: false`
+- `maximum_timestamp_assurance: false`
+
+This is the expected fail-closed state.
+
+An unexecuted or unconfirmed timestamp system must not be treated as verified.
 
 ## Successful State
 
-After complete ML-DSA signing and verification:
+Final acceptance is issued only when both independent timestamp rails verify:
 
-- `decision: quantum_safe_dual_signature_verified`
-- `sigstore_signature_verified: true`
-- `rekor_inclusion_verified: true`
-- `mldsa_signature_verified: true`
-- `dual_signature_target_matches: true`
-- `pqc_downgrade_prevented: true`
+- `decision: dual_timestamp_final_acceptance_verified`
+- `rfc3161_verified: true`
+- `opentimestamps_verified: true`
+- `verified_proof_count: 2`
+- `timestamp_verified: true`
+- `effective_final_acceptance: true`
+- `maximum_timestamp_assurance: true`
 
-## Downgrade Prevention
+## Decision Model
 
-Stage375 uses:
+Stage377 can return the following decisions:
 
-- `pqc_required: true`
-- `downgrade_policy: fail_closed`
+### `timestamp_finalization_pending`
 
-After ML-DSA execution begins, a missing, invalid, removed, or mismatched ML-DSA signature causes `block`.
+Neither timestamp system has completed a verified production result.
 
-A valid Sigstore signature alone is not sufficient when the PQC policy is active.
+### `rfc3161_verified_opentimestamps_pending`
 
-## Key Protection
+The RFC3161 receipt is verified, but the OpenTimestamps proof is still unconfirmed or unverified.
 
-The ML-DSA private key:
+### `opentimestamps_verified_rfc3161_pending`
 
-- is created locally
-- remains under `private/stage375-mldsa/`
-- is excluded by `.gitignore`
-- is excluded from Git and may remain in the local private directory; the production workflow receives a copy through an encrypted GitHub Actions secret
-- is reconstructed temporarily inside the GitHub Actions runner
-- has its temporary runner copy deleted before artifact upload
-- is never published in GitHub Pages or the repository
+The OpenTimestamps receipt is verified, but the RFC3161 receipt is still unverified.
 
-The public key and ML-DSA signature may be public.
+### `dual_timestamp_final_acceptance_verified`
 
-## OpenSSL
+Both independent timestamp systems verified the same Stage360 target and all final-acceptance conditions passed.
 
-Stage375 uses OpenSSL 3.5.7 LTS in GitHub Actions.
+### `block`
 
-OpenSSL 3.5 introduced native ML-DSA-44, ML-DSA-65, and ML-DSA-87 support.
+A required binding, receipt, hash, verification result, or publication-boundary condition failed.
 
-This stage claims use of the FIPS 204 ML-DSA algorithm.
+## RFC3161 Verification Rail
 
-It does not claim that the custom-built OpenSSL binary is a FIPS 140 validated cryptographic module.
+The RFC3161 workflow:
+
+- verifies the exact Stage360 target SHA256 before execution
+- generates an RFC3161 request using SHA256
+- sends the request to the configured timestamp authority
+- receives a timestamp response
+- extracts the signed timestamp token
+- verifies the target message imprint
+- verifies the timestamp authority signature
+- verifies the certificate chain using OpenSSL
+- generates a metadata-only public receipt
+- deletes raw RFC3161 material from the GitHub-hosted runner
+
+The public repository does not require publication of the raw timestamp request, raw timestamp response, timestamp token, or certificate bundle.
+
+## OpenTimestamps Verification Rail
+
+The OpenTimestamps workflow:
+
+- verifies the exact Stage360 target SHA256 before execution
+- copies the target into a private runner directory
+- creates an OpenTimestamps proof
+- runs OpenTimestamps verification
+- records whether a confirmed public blockchain anchor exists
+- records `pending_confirmation` when confirmation is not yet available
+- claims `verified` only when the public anchor and verified time are confirmed
+- generates a metadata-only public receipt
+- deletes the raw `.ots` proof from the GitHub-hosted runner
+
+A newly created OpenTimestamps proof commonly requires time before reaching a confirmed public blockchain anchor.
+
+Stage377 does not treat an unconfirmed proof as final verification.
+
+## GitHub Actions Workflows
+
+Stage377 adds:
+
+- `.github/workflows/stage377-production-rfc3161.yml`
+- `.github/workflows/stage377-production-opentimestamps.yml`
+- `.github/workflows/stage377-dual-final-acceptance.yml`
+
+### RFC3161 Workflow
+
+Produces the artifact:
+
+`stage377-rfc3161-metadata-receipt`
+
+### OpenTimestamps Workflow
+
+Produces the artifact:
+
+`stage377-opentimestamps-metadata-receipt`
+
+### Dual Final-Acceptance Workflow
+
+Accepts:
+
+- RFC3161 GitHub Actions run ID
+- OpenTimestamps GitHub Actions run ID
+
+It downloads the two metadata receipts, imports them into the checked-out repository, runs the Stage377 finalization engine, and generates a metadata-only finalization package.
+
+The finalization workflow does not automatically commit or push files to the repository.
+
+## Stage377 Engine
+
+The Stage377 finalization engine is:
+
+`scripts/stage377_dual_timestamp_finalization.py`
+
+It validates:
+
+- Stage376 result integrity
+- Stage372 result integrity
+- Stage360 target hash binding
+- RFC3161 receipt structure
+- RFC3161 verification status
+- OpenTimestamps receipt structure
+- OpenTimestamps verification status
+- common target binding
+- required proof count
+- metadata-only publication boundary
+- absence of forbidden timestamp binaries under `docs/`
+- absence of private key material under `docs/`
 
 ## Public Evidence
 
-- `docs/mldsa-production/stage375_mldsa65_input.json`
-- `docs/mldsa-production/stage375_mldsa65_public_key.pem`
-- `docs/mldsa-production/stage375_mldsa65_signature.bin`
-- `docs/mldsa-production/stage375_mldsa65_execution_receipt.json`
-- `docs/mldsa-production/stage375_dual_signature_verification_result.json`
-- `docs/mldsa-production/stage375_dual_signature_verification_summary.txt`
+Stage377 publishes the following metadata and decision files:
 
-## Safety Boundary
+- `docs/timestamp-policy/stage377_dual_timestamp_finalization_policy.json`
+- `docs/timestamp-evidence/stage377_rfc3161_verification_receipt.json`
+- `docs/timestamp-evidence/stage377_opentimestamps_verification_receipt.json`
+- `docs/timestamp-finalization/stage377_dual_timestamp_finalization_result.json`
+- `docs/timestamp-finalization/stage377_superseding_final_acceptance_manifest.json`
+- `docs/timestamp-finalization/stage377_dual_timestamp_finalization_summary.txt`
 
-Stage375 does not publish:
+## Private and Excluded Material
 
-- ML-DSA private keys
-- ML-DSA seeds
+Stage377 does not publish:
+
+- private keys
+- secret seeds
 - OIDC tokens
 - GitHub tokens
 - raw QKD key material
-- raw timestamp binaries
-- free-form shell commands
+- RFC3161 `.tsq` files
+- RFC3161 `.tsr` files
+- RFC3161 timestamp tokens
+- RFC3161 certificate bundles
+- raw OpenTimestamps `.ots` proof files
+- free-form externally supplied shell commands
 
-## License
+Raw timestamp material is handled under Git-ignored private directories.
+
+## Historical Preservation
+
+Stage377 does not change the historic Stage372 or Stage376 result files.
+
+The Stage377 result records their established hashes and creates a new result representing a later verification state.
+
+Superseding does not mean deleting or rewriting previous history.
+
+It means that a newer, independently verified record establishes the latest effective final-acceptance state.
+
+## Fail-Closed Principle
+
+Stage377 does not grant final acceptance merely because:
+
+- one timestamp rail succeeded
+- a proof file exists
+- a workflow completed without a validated receipt
+- an OpenTimestamps proof was created but not confirmed
+- a timestamp response was received but not cryptographically verified
+- two receipts refer to different target hashes
+- a required historical hash does not match
+- raw timestamp material entered the public directory
+
+Any such state remains pending or becomes blocked.
+
+## Local Verification
+
+Run:
+
+```bash
+python3 -m py_compile \
+  scripts/stage377_dual_timestamp_finalization.py
+
+python3 \
+  scripts/stage377_dual_timestamp_finalization.py
+
+cat \
+  docs/timestamp-finalization/stage377_dual_timestamp_finalization_summary.txt
+
+Before production timestamp receipts exist, the expected output includes:
+
+Decision: timestamp_finalization_pending
+RFC3161 Verified: False
+OpenTimestamps Verified: False
+Effective Final Acceptance: False
+Maximum Timestamp Assurance: False
+GitHub Pages
+
+Stage377 preserves the existing GitHub Pages structure under:
+
+docs/
+
+Public page:
+
+https://mokkunsuzuki-code.github.io/stage377/
+
+Safety Statement
+
+Stage377 is a verification and audit-evidence system.
+
+It does not include:
+
+malware
+exploit automation
+attack payloads
+credential theft
+private-key publication
+raw QKD key publication
+License
 
 MIT License.
-
-## Current Verified State
-
-Stage375 completed real ML-DSA-65 signing and verification.
-
-Current result:
-
-- `decision: quantum_safe_dual_signature_verified`
-- `sigstore_signature_verified: true`
-- `rekor_inclusion_verified: true`
-- `mldsa_signature_verified: true`
-- `dual_signature_target_matches: true`
-- `pqc_downgrade_prevented: true`
-- GitHub Actions run: `29327350883`
-- OpenSSL version: `3.5.7`
-- ML-DSA signature size: `3309 bytes`
-
-The Stage374 Sigstore/Rekor signature and the Stage375 ML-DSA-65 signature target the same Stage373 attestation blob.
-
-The ML-DSA private key was not published. A local development copy may remain under the Git-ignored `private/stage375-mldsa/` directory, while the production workflow uses an encrypted GitHub Actions secret.

@@ -1,0 +1,39 @@
+Stage359 Real Public Key Fingerprint Validation Layer
+
+Decision:
+accept_fingerprint_metadata
+
+What Stage359 adds:
+- Reads Stage358 signing-time validity result
+- Binds Stage358 result_sha256 as Stage359 previous_hash
+- Registers public-key fingerprint metadata
+- Validates public_key_fingerprint presence
+- Validates SHA256 fingerprint format
+- Checks key_id / algorithm / status against expected binding
+- Checks valid_from / valid_until consistency with Stage358
+- Keeps PQC ML-DSA as intent_only
+- Records external timestamp proof readiness
+- Records revocation proof readiness
+- Does not publish private keys or real key material
+
+Previous hash from Stage358:
+941e6e819d0af9d33abcb4f964491989cc152bee8926a1e77dd02d9f75eb69cd
+
+Stage359 entry hash:
+7327c722ef8001c6e76319306ea3a950482b154aebf4daa5aeaa6ed905375f2d
+
+Public key fingerprint:
+sha256:9b9f3f4d5e5b8e04a60f2f0c1f3b2a6df01af45b217bbd85e82f2ac52b3d5c10
+
+Generated files:
+- docs/keys/stage359_public_key_fingerprint_policy.json
+- docs/keys/stage359_public_key_fingerprint_result.json
+- docs/keys/stage359_public_key_fingerprint_summary.txt
+
+Safety boundary:
+- No private keys
+- No raw secrets
+- No public key material
+- No real signature claim
+- No real PQC signature claim
+- Fingerprint metadata only

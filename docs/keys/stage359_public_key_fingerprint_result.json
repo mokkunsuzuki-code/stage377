@@ -1,0 +1,70 @@
+{
+  "stage": 359,
+  "engine": "Real Public Key Fingerprint Validation Layer",
+  "source_stage": 358,
+  "created_at": "2026-06-26T04:03:17Z",
+  "decision": "accept_fingerprint_metadata",
+  "previous_hash": "941e6e819d0af9d33abcb4f964491989cc152bee8926a1e77dd02d9f75eb69cd",
+  "entry_hash": "7327c722ef8001c6e76319306ea3a950482b154aebf4daa5aeaa6ed905375f2d",
+  "checks": {
+    "stage358_result_exists": true,
+    "stage358_policy_exists": true,
+    "stage358_decision_accept": true,
+    "stage358_result_sha256_present": true,
+    "stage358_entry_hash_present": true,
+    "public_key_metadata_present": true,
+    "public_key_fingerprint_present": true,
+    "public_key_fingerprint_format_valid": true,
+    "fingerprint_algorithm_sha256": true,
+    "key_id_matches_expected": true,
+    "algorithm_matches_expected": true,
+    "status_remains_intent_only": true,
+    "valid_from_matches_stage358": true,
+    "valid_until_matches_stage358": true,
+    "no_private_key_published": true,
+    "no_public_key_material_published": true,
+    "no_real_signature_claim": true,
+    "no_real_pqc_signature_claim": true,
+    "external_timestamp_proof_readiness_recorded": true,
+    "revocation_proof_readiness_recorded": true
+  },
+  "violations": [],
+  "reasons": [
+    "stage358_result_bound",
+    "stage358_temporal_validity_accepted",
+    "public_key_fingerprint_present",
+    "public_key_fingerprint_format_valid",
+    "key_id_matches_expected",
+    "algorithm_matches_expected",
+    "pqc_ml_dsa_remains_intent_only",
+    "no_private_keys_published",
+    "external_timestamp_and_revocation_proof_readiness_recorded"
+  ],
+  "key_id": "pqc-ml-dsa-intent",
+  "algorithm": "ML-DSA",
+  "status": "intent_only",
+  "public_key_fingerprint": "sha256:9b9f3f4d5e5b8e04a60f2f0c1f3b2a6df01af45b217bbd85e82f2ac52b3d5c10",
+  "valid_from": "2026-01-01T00:00:00Z",
+  "valid_until": "2026-12-31T23:59:59Z",
+  "revoked_at": null,
+  "future_proof_readiness": {
+    "external_timestamp_proof": {
+      "status": "readiness_only",
+      "supported_future_inputs": [
+        "OpenTimestamps",
+        "RFC3161"
+      ],
+      "real_external_timestamp_verified": false
+    },
+    "revocation_proof": {
+      "status": "readiness_only",
+      "supported_future_inputs": [
+        "OCSP",
+        "CRL",
+        "signed_revocation_metadata"
+      ],
+      "real_revocation_proof_verified": false
+    }
+  },
+  "result_sha256": "a081c57c22eebf76384a2c8d4a9bc7cba13a7013705095c97fd1ec4ceaee6a95"
+}
