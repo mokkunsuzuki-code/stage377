@@ -1,54 +1,69 @@
 {
-  "stage": 377,
   "engine": "production_rfc3161_timestamp_verification",
-  "source_stage": 376,
-  "previous_hash": "32ff58a1f4d5837518226eee70b32833a8147617df3142ff2f641eca3f116138",
-  "execution_status": "not_executed",
-  "rfc3161_verified": false,
-  "verification_exit_code": null,
-  "timestamp_authority": {
-    "provider": null,
-    "url": null,
-    "http_status": null,
-    "response_content_type": null
+  "execution_status": "verified",
+  "generated_at": "2026-07-22T07:13:58.754942+00:00",
+  "github_actions": {
+    "commit_sha": "0b73a8d164a30b9c9b601f6996f29e5fd98e8f67",
+    "ref": "refs/heads/main",
+    "repository": "mokkunsuzuki-code/stage377",
+    "run_attempt": "1",
+    "run_id": "29899444699",
+    "workflow": "Stage377 Production RFC3161 Verification"
   },
-  "timestamp_target": {
-    "path": "docs/timestamp-evidence/stage376_stage360_timestamp_target.json",
-    "sha256": "052c8f0283110e405443d56f2396c52a8486e7a70a489f831af107dad73ab1b5",
-    "stage360_target_sha256": "052c8f0283110e405443d56f2396c52a8486e7a70a489f831af107dad73ab1b5",
-    "digest_matches_stage360": true
+  "previous_hash": "32ff58a1f4d5837518226eee70b32833a8147617df3142ff2f641eca3f116138",
+  "publication_boundary": {
+    "certificate_bundle_published": false,
+    "private_key_used": false,
+    "public_metadata_receipt_only": true,
+    "raw_token_published": false,
+    "raw_tsq_published": false,
+    "raw_tsr_published": false
+  },
+  "rfc3161_verified": true,
+  "source_stage": 376,
+  "stage": 377,
+  "timestamp_authority": {
+    "http_status": 200,
+    "provider": "DigiCert",
+    "url": "http://timestamp.digicert.com"
   },
   "timestamp_request": {
-    "digest_algorithm": "sha256",
     "certificate_requested": true,
-    "nonce_requested": true,
-    "request_sha256": null,
-    "raw_request_published": false
+    "digest_algorithm": "sha256",
+    "raw_request_published": false,
+    "request_sha256": "ef2cfa8f84f78eb35f373d5e4abdf99a7ac2b0b0118358c24a827ef89f6f4cc3"
   },
   "timestamp_response": {
-    "response_status": null,
-    "policy_oid": null,
-    "serial_number": null,
-    "generation_time": null,
-    "response_sha256": null,
-    "timestamp_token_sha256": null,
-    "raw_response_published": false
+    "generation_time": "Jul 22 07:13:58 2026 GMT",
+    "policy_oid": "2.16.840.1.114412.7.1",
+    "raw_response_published": false,
+    "raw_token_published": false,
+    "response_sha256": "b94400144f066b2c20c9340954784b32238e3b7e26f2915a02ac89726c96f464",
+    "response_status": "Granted.",
+    "serial_number": "0x45692552A9A1F055E45D6F7B9ABE5ECA",
+    "timestamp_token_sha256": "69b218df6d7ad5a6ef397ca449f828478e16d05791d18a7ad1fb2d7df9908338"
+  },
+  "timestamp_target": {
+    "digest_matches_stage360": true,
+    "path": "docs/timestamp-evidence/stage376_stage360_timestamp_target.json",
+    "sha256": "052c8f0283110e405443d56f2396c52a8486e7a70a489f831af107dad73ab1b5",
+    "stage360_target_sha256": "052c8f0283110e405443d56f2396c52a8486e7a70a489f831af107dad73ab1b5"
+  },
+  "tsa_signer_certificate": {
+    "issuer": "C = US, O = \"DigiCert, Inc.\", CN = DigiCert Trusted G4 TimeStamping RSA4096 SHA256 2025 CA1",
+    "not_after": "Sep  3 23:59:59 2036 GMT",
+    "not_before": "Jun  4 00:00:00 2025 GMT",
+    "serial": "0A80EF184B8DF10582D1C476A7957468",
+    "sha256_fingerprint": "4A:A0:3F:A2:2C:D7:5C:84:C5:5C:93:8F:82:8E:67:6B:9C:AE:CA:B3:3F:E3:6D:26:9A:A3:34:F1:46:11:0A:33",
+    "subject": "C = US, O = \"DigiCert, Inc.\", CN = DigiCert SHA256 RSA4096 Timestamp Responder 2025 1"
   },
   "verification": {
-    "openssl_ts_verify": false,
-    "target_message_imprint_match": false,
-    "tsa_signature_valid": false,
-    "certificate_chain_valid": false,
-    "verification_output_sha256": null
+    "certificate_chain_valid": true,
+    "openssl_ts_verify": true,
+    "openssl_version": "OpenSSL 3.0.13 30 Jan 2024 (Library: OpenSSL 3.0.13 30 Jan 2024)",
+    "target_message_imprint_match": true,
+    "tsa_signature_valid": true,
+    "verification_output_sha256": "170679e5a7e0ccc9263c14d92663e898c2221f5df1a94d1fe59c46199ef74250"
   },
-  "publication_boundary": {
-    "public_metadata_receipt_only": true,
-    "raw_tsq_published": false,
-    "raw_tsr_published": false,
-    "raw_token_published": false,
-    "tsa_certificate_bundle_published": false,
-    "private_key_used": false
-  },
-  "generated_at": null,
-  "note": "Safe initial Stage377 receipt. No RFC3161 production verification is claimed."
+  "verification_exit_code": 0
 }

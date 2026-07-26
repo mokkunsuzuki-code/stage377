@@ -1,34 +1,52 @@
 {
-  "stage": 377,
-  "engine": "production_opentimestamps_verification",
-  "source_stage": 376,
-  "previous_hash": "32ff58a1f4d5837518226eee70b32833a8147617df3142ff2f641eca3f116138",
-  "execution_status": "not_executed",
+  "continuation": {
+    "source_receipt_sha256": "5144e25cb94a83c43ac796c36a4e9a9cf19bccbe742205ad77392b25aa1068c9",
+    "source_run_id": "29899606825",
+    "upgrade_exit_code": 1,
+    "upgrade_output_sha256": "edf1dbceab5e62f082108165d514588285b6af3c3c2385287ef3f7e2191abfd0"
+  },
+  "engine": "production_opentimestamps_continuation_verification",
+  "execution_status": "pending_confirmation",
+  "generated_at": "2026-07-22T07:19:23.628021+00:00",
+  "github_actions": {
+    "commit_sha": "0b73a8d164a30b9c9b601f6996f29e5fd98e8f67",
+    "ref": "refs/heads/main",
+    "repository": "mokkunsuzuki-code/stage377",
+    "run_attempt": "1",
+    "run_id": "29899767149",
+    "workflow": "Stage377 OpenTimestamps Continuation Verification"
+  },
+  "note": "A pending status is retained until the same OpenTimestamps proof verifies against a confirmed Bitcoin anchor.",
   "opentimestamps_verified": false,
-  "verification_exit_code": null,
-  "timestamp_target": {
-    "path": "docs/timestamp-evidence/stage376_stage360_timestamp_target.json",
-    "sha256": "052c8f0283110e405443d56f2396c52a8486e7a70a489f831af107dad73ab1b5",
-    "stage360_target_sha256": "052c8f0283110e405443d56f2396c52a8486e7a70a489f831af107dad73ab1b5",
-    "digest_matches_stage360": true
-  },
+  "previous_hash": "32ff58a1f4d5837518226eee70b32833a8147617df3142ff2f641eca3f116138",
   "proof": {
-    "proof_sha256": null,
-    "raw_proof_published": false
-  },
-  "verification": {
-    "target_hash_matches": false,
-    "confirmed_public_anchor": false,
-    "confirmed_anchor_type": null,
-    "confirmed_anchor_reference": null,
-    "verified_time": null,
-    "verification_output_sha256": null
+    "continuation_preserved": true,
+    "proof_sha256": "b1cb1afc8d23b6390ee7a9b1e678fb0381d0e141c7cc993291107379e7a6228f",
+    "raw_proof_published": false,
+    "source_proof_sha256": "b1cb1afc8d23b6390ee7a9b1e678fb0381d0e141c7cc993291107379e7a6228f"
   },
   "publication_boundary": {
+    "encrypted_continuation_only": true,
+    "private_key_used": false,
     "public_metadata_receipt_only": true,
-    "raw_ots_published": false,
-    "private_key_used": false
+    "raw_ots_published": false
   },
-  "generated_at": null,
-  "note": "Safe initial Stage377 receipt. No OpenTimestamps public-anchor verification is claimed."
+  "source_stage": 376,
+  "stage": 377,
+  "timestamp_target": {
+    "digest_matches_stage360": true,
+    "path": "docs/timestamp-evidence/stage376_stage360_timestamp_target.json",
+    "sha256": "052c8f0283110e405443d56f2396c52a8486e7a70a489f831af107dad73ab1b5",
+    "stage360_target_sha256": "052c8f0283110e405443d56f2396c52a8486e7a70a489f831af107dad73ab1b5"
+  },
+  "verification": {
+    "client_version": "v0.7.2",
+    "confirmed_anchor_reference": null,
+    "confirmed_anchor_type": null,
+    "confirmed_public_anchor": false,
+    "target_hash_matches": true,
+    "verification_output_sha256": "8043ee870b87848af432fccecbfe9b389da613a3d871153e97450eabcbf8dc37",
+    "verified_time": null
+  },
+  "verification_exit_code": 1
 }
